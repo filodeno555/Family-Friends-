@@ -119,15 +119,15 @@
       </div>
       <div id="loanFullList" class="card-list"></div>
 
-      <button class="btn primary full" id="btnNewLoanFromList">+ Neues Darlehen anlegen</button>
+      <div class="sticky-action">
+        <button class="btn primary full" id="btnNewLoanFromList">+ Neues Darlehen anlegen</button>
+      </div>
     </section>
 
     <!-- ===== ANFRAGEN ===== -->
     <section class="screen" id="screen-anfragen" data-screen hidden aria-labelledby="t-anfragen">
       <h1 class="screen-title" id="t-anfragen">Anfragen</h1>
       <p class="screen-intro">Hier bittet jemand eine Gruppe um Geld. Andere können ein Angebot machen. Wird ein Angebot angenommen, entsteht ein Darlehen.</p>
-
-      <button class="btn primary full" id="btnNewRequest">+ Neue Anfrage stellen</button>
 
       <h2 class="section-label">Gruppe auswählen</h2>
       <div class="chip-row" id="groupFilterRow" role="group" aria-label="Nach Gruppe filtern"></div>
@@ -137,6 +137,10 @@
 
       <h2 class="section-label">Erledigte Anfragen</h2>
       <div id="requestHistoryList" class="card-list"></div>
+
+      <div class="sticky-action">
+        <button class="btn primary full" id="btnNewRequest">+ Neue Anfrage stellen</button>
+      </div>
     </section>
 
     <!-- ===== PERSONEN ===== -->
@@ -144,11 +148,14 @@
       <h1 class="screen-title" id="t-kreis">Personen</h1>
       <p class="screen-intro">Hier stehen alle Personen und ihre Gruppen. Die Zuverlässigkeit zeigt, wie gut eine Person bisher Geld zurückgezahlt hat.</p>
 
-      <div class="btn-row">
-        <button class="btn primary" id="btnNewMember">+ Person</button>
-        <button class="btn secondary" id="btnNewGroup">+ Gruppe</button>
-      </div>
       <div id="memberList" class="card-list"></div>
+
+      <div class="sticky-action">
+        <div class="btn-row">
+          <button class="btn primary" id="btnNewMember">+ Person</button>
+          <button class="btn secondary" id="btnNewGroup">+ Gruppe</button>
+        </div>
+      </div>
     </section>
 
     <!-- ===== VERLAUF ===== -->

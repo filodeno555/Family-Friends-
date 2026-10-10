@@ -198,6 +198,18 @@ button { cursor: pointer; }
 .btn-row { display: flex; gap: 10px; margin-top: 4px; }
 .screen > .btn.full:first-of-type { margin-top: 0; }
 
+/* Haupt-Button jeder Seite: immer an derselben Stelle direkt über der Navigation */
+.sticky-action {
+  position: sticky;
+  bottom: calc(75px + env(safe-area-inset-bottom));
+  z-index: 15;
+  margin: 16px -18px -16px;
+  padding: 12px 18px 16px;
+  background: linear-gradient(to bottom, rgba(242, 245, 249, 0), var(--bg) 14px);
+}
+.sticky-action .btn.full { margin-top: 0; }
+.sticky-action .btn.secondary { background: var(--surface); }
+
 /* ---------- Zusammenfassung ---------- */
 .summary-card {
   background: var(--surface);
