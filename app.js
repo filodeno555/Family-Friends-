@@ -99,6 +99,7 @@ function legacyState() {
 let saveChain = Promise.resolve();
 function saveState() {
   if (!session) return;
+  if (session.cloud) { scheduleCloudSave(); return; }
   const json = JSON.stringify(state);
   const current = session;
   saveChain = saveChain.then(() => encryptAndStore(current, json)).catch(() => {
@@ -1211,7 +1212,10 @@ const SESSION_KEY = 'ffSession';
 const DATA_PREFIX = 'ffData:';
 const PBKDF2_ITERATIONS = 210000;
 
-let session = null; // { user, key }
+let session = null; // lokal: { user, key } · online: { user, cloud: true }
+
+// Fehler mit einem Text, der so der Person angezeigt werden kann
+class FriendlyError extends Error {}
 
 const textEnc = new TextEncoder();
 const toB64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -1251,7 +1255,7 @@ function rememberSession(user, raw) {
 
 async function registerAccount(name, email, password) {
   const users = loadUsers();
-  if (users.some(u => u.email === email)) throw new Error('Mit dieser E-Mail gibt es auf diesem Gerät schon ein Konto. Bitte melde dich an.');
+  if (users.some(u => u.email === email)) throw new FriendlyError('Mit dieser E-Mail gibt es auf diesem Gerät schon ein Konto. Bitte melde dich an.');
   const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
   const { raw, verifier } = await deriveFromPassword(password, salt, PBKDF2_ITERATIONS);
   const user = { id: 'u' + Date.now(), name, email, salt, verifier, iterations: PBKDF2_ITERATIONS, createdAt: TODAY };
@@ -1268,9 +1272,9 @@ async function registerAccount(name, email, password) {
 
 async function loginAccount(email, password) {
   const user = loadUsers().find(u => u.email === email);
-  if (!user) throw new Error('Zu dieser E-Mail gibt es auf diesem Gerät kein Konto. Prüfe die E-Mail oder erstelle ein neues Konto.');
+  if (!user) throw new FriendlyError('Zu dieser E-Mail gibt es auf diesem Gerät kein Konto. Prüfe die E-Mail oder erstelle ein neues Konto.');
   const { raw, verifier } = await deriveFromPassword(password, user.salt, user.iterations);
-  if (verifier !== user.verifier) throw new Error('Das Passwort ist falsch. Bitte versuche es noch einmal.');
+  if (verifier !== user.verifier) throw new FriendlyError('Das Passwort ist falsch. Bitte versuche es noch einmal.');
   const key = await importKey(raw);
   state = await loadUserData(user, key);
   session = { user, key };
@@ -1290,25 +1294,136 @@ async function restoreSession() {
   } catch (e) { return false; }
 }
 
-async function logout() {
-  await saveChain;
-  try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* egal */ }
-  location.reload();
+
+// =====================================================================
+// Online-Konto mit Supabase (wenn in config.js eingetragen):
+// Bestätigungs-E-Mail, Passwort zurücksetzen per E-Mail, Daten auf allen Geräten.
+// =====================================================================
+
+const CFG = window.FF_CONFIG || {};
+const CLOUD = !!(CFG.supabaseUrl && CFG.supabaseAnonKey && window.supabase);
+// Die Adresse der App: dorthin führen die Links in den E-Mails zurück
+const APP_URL = location.origin + location.pathname;
+// Den Teil der Adresse nach „#“ merken, bevor Supabase ihn auswertet und entfernt
+const INITIAL_HASH = new URLSearchParams(location.hash.slice(1));
+const sb = CLOUD ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
+}) : null;
+
+function cloudErrorText(error) {
+  const msg = (error && (error.code || error.message) || '').toLowerCase();
+  if (msg.includes('email_not_confirmed') || msg.includes('not confirmed')) return 'not_confirmed';
+  if (msg.includes('invalid_credentials') || msg.includes('invalid login')) return 'E-Mail oder Passwort ist falsch. Bitte versuche es noch einmal.';
+  if (msg.includes('user_already_exists') || msg.includes('already registered')) return 'Mit dieser E-Mail gibt es schon ein Konto. Bitte melde dich an.';
+  if (msg.includes('weak_password') || msg.includes('password should')) return 'Das Passwort ist zu schwach. Nimm mindestens 8 Zeichen, am besten mit Zahlen.';
+  if (msg.includes('rate') || msg.includes('security purposes') || (error && error.status === 429)) return 'Zu viele Versuche in kurzer Zeit. Bitte warte ein paar Minuten und versuche es dann noch einmal.';
+  if (msg.includes('fetch') || msg.includes('network')) return 'Keine Verbindung zum Internet. Bitte prüfe deine Verbindung.';
+  return 'Das hat leider nicht geklappt. Bitte versuche es noch einmal.';
+}
+
+function cloudUser(u) {
+  return { id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || u.email.split('@')[0] };
+}
+
+// Lädt die Daten des Kontos. Beim allerersten Mal werden Daten von diesem Gerät übernommen
+// (ein lokales Konto mit derselben E-Mail und demselben Passwort, oder ältere Daten).
+async function loadCloudData(user, password) {
+  const { data, error } = await sb.from('app_data').select('data').eq('user_id', user.id).maybeSingle();
+  if (error) throw new FriendlyError('Deine Daten konnten nicht geladen werden. Ist die Datenbank eingerichtet (siehe SUPABASE.md)?');
+  if (data) return { state: normalizeState(data.data), imported: false };
+
+  let initial = null;
+  const local = loadUsers().find(u => u.email === user.email);
+  if (local && password) {
+    try {
+      const { raw, verifier } = await deriveFromPassword(password, local.salt, local.iterations);
+      if (verifier === local.verifier) initial = await loadUserData(local, await importKey(raw));
+    } catch (e) { /* dann eben ohne Übernahme */ }
+  }
+  if (!initial && legacyState()) initial = normalizeState(legacyState());
+  const result = { state: initial || emptyState(user.name), imported: !!initial };
+  const { error: upErr } = await sb.from('app_data').upsert({ user_id: user.id, data: result.state, updated_at: new Date().toISOString() });
+  if (upErr) throw new FriendlyError('Deine Daten konnten nicht gespeichert werden. Ist die Datenbank eingerichtet (siehe SUPABASE.md)?');
+  if (initial && !local) localStorage.removeItem(STORAGE_KEY);
+  return result;
+}
+
+let cloudSaveTimer = null;
+function scheduleCloudSave() {
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(flushCloudSave, 500);
+}
+function flushCloudSave() {
+  clearTimeout(cloudSaveTimer);
+  if (!session || !session.cloud) return saveChain;
+  const payload = { user_id: session.user.id, data: JSON.parse(JSON.stringify(state)), updated_at: new Date().toISOString() };
+  saveChain = saveChain.then(async () => {
+    const { error } = await sb.from('app_data').upsert(payload);
+    if (error) showToast('! Speichern hat nicht geklappt. Bitte prüfe deine Internetverbindung.');
+  });
+  return saveChain;
+}
+window.addEventListener('pagehide', () => { if (session && session.cloud) flushCloudSave(); });
+
+async function cloudRegister(name, email, password) {
+  const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name }, emailRedirectTo: APP_URL } });
+  if (error) throw new FriendlyError(cloudErrorText(error));
+  // Supabase meldet bei bereits bestätigten Adressen keinen Fehler, aber ein Konto ohne Identitäten
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    throw new FriendlyError('Mit dieser E-Mail gibt es schon ein Konto. Bitte melde dich an.');
+  }
+  if (data.session) { // falls die E-Mail-Bestätigung im Dashboard ausgeschaltet ist
+    await sb.auth.signOut();
+    return { needsConfirm: false };
+  }
+  return { needsConfirm: true };
+}
+
+async function cloudLogin(email, password) {
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) {
+    const text = cloudErrorText(error);
+    if (text === 'not_confirmed') { const e = new FriendlyError('not_confirmed'); e.notConfirmed = true; throw e; }
+    throw new FriendlyError(text);
+  }
+  const user = cloudUser(data.user);
+  const { state: loaded, imported } = await loadCloudData(user, password);
+  state = loaded;
+  session = { user, cloud: true };
+  return { imported };
+}
+
+let resendCooldown = 0;
+async function cloudResend(email) {
+  const { error } = await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: APP_URL } });
+  if (error) throw new FriendlyError(cloudErrorText(error));
 }
 
 // ---------- Anmelde-Seite ----------
 
-function showAuthMode(mode) {
+const AUTH_PANELS = { login: 'loginForm', register: 'registerForm', verify: 'verifyPanel', reset: 'resetForm' };
+
+function showAuthMode(mode, info) {
   document.querySelectorAll('[data-auth]').forEach(b => {
     const active = b.dataset.auth === mode;
     b.classList.toggle('active', active);
     b.setAttribute('aria-selected', active);
   });
-  document.getElementById('loginForm').hidden = mode !== 'login';
-  document.getElementById('registerForm').hidden = mode !== 'register';
+  Object.entries(AUTH_PANELS).forEach(([m, id]) => { document.getElementById(id).hidden = m !== mode; });
+  document.querySelector('.auth-switch').hidden = mode === 'verify' || mode === 'reset';
   document.querySelectorAll('.auth .form-error').forEach(e => { e.hidden = true; });
-  const first = document.querySelector(mode === 'login' ? '#loginEmail' : '#registerName');
-  if (first) first.focus();
+  const infoEl = document.getElementById('authInfo');
+  infoEl.hidden = !info;
+  infoEl.textContent = info || '';
+  const first = { login: '#loginEmail', register: '#registerName', verify: '#verifyDoneBtn', reset: '#resetPassword' }[mode];
+  const el = document.querySelector(first);
+  if (el) el.focus();
+}
+
+function showVerify(email) {
+  document.getElementById('verifyEmail').textContent = email;
+  document.getElementById('verifyPanel').dataset.email = email;
+  showAuthMode('verify');
 }
 
 function showAuthError(id, msg) {
@@ -1328,19 +1443,25 @@ function startApp(message) {
   document.getElementById('authScreen').hidden = true;
   document.querySelector('.phone').hidden = false;
   document.getElementById('accountName').textContent = session.user.name;
-  document.getElementById('accountEmail').textContent = session.user.email;
+  document.getElementById('accountEmail').textContent = session.user.email + (session.cloud ? ' · ✓ bestätigt' : '');
   document.getElementById('accountAvatar').textContent = initials(session.user.name);
   renderAll();
   switchTab('uebersicht');
   if (message) showToast(message);
 }
 
-function showAuth() {
+function showAuth(mode, info) {
   document.querySelector('.phone').hidden = true;
   document.getElementById('authScreen').hidden = false;
   const hasUsers = loadUsers().length > 0;
-  document.getElementById('legacyHint').hidden = hasUsers || !legacyState();
-  showAuthMode(hasUsers ? 'login' : 'register');
+  document.getElementById('legacyHint').hidden = !legacyState() || (!CLOUD && hasUsers);
+  showAuthMode(mode || (hasUsers || CLOUD ? 'login' : 'register'), info);
+}
+
+if (CLOUD) {
+  document.getElementById('authNote').textContent = '🔒 Dein Konto ist durch deine bestätigte E-Mail geschützt. Deine Daten sind auf all deinen Geräten gleich.';
+  document.getElementById('registerPwHint').textContent = 'Mindestens 8 Zeichen. Falls du es vergisst, kannst du es per E-Mail zurücksetzen.';
+  document.getElementById('legacyHint').textContent = 'Daten von diesem Gerät werden in dein Online-Konto übernommen.';
 }
 
 document.querySelectorAll('[data-auth]').forEach(b => b.addEventListener('click', () => showAuthMode(b.dataset.auth)));
@@ -1353,6 +1474,8 @@ document.querySelectorAll('[data-toggle-pw]').forEach(btn => btn.addEventListene
   btn.setAttribute('aria-pressed', show);
 }));
 
+const genericError = (err, fallback) => (err instanceof FriendlyError ? err.message : fallback);
+
 document.getElementById('loginForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const email = normEmail(document.getElementById('loginEmail').value);
@@ -1360,11 +1483,18 @@ document.getElementById('loginForm').addEventListener('submit', (e) => {
   if (!email || !password) { showAuthError('loginError', 'Bitte gib deine E-Mail und dein Passwort ein.'); return; }
   withBusy(e.submitter || e.target.querySelector('[type=submit]'), 'Bitte warten …', async () => {
     try {
-      await loginAccount(email, password);
-      e.target.reset();
-      startApp(`✓ Hallo ${session.user.name}, du bist angemeldet.`);
+      if (CLOUD) {
+        const { imported } = await cloudLogin(email, password);
+        e.target.reset();
+        startApp(imported ? `✓ Hallo ${session.user.name}! Deine Daten von diesem Gerät sind jetzt in deinem Konto.` : `✓ Hallo ${session.user.name}, du bist angemeldet.`);
+      } else {
+        await loginAccount(email, password);
+        e.target.reset();
+        startApp(`✓ Hallo ${session.user.name}, du bist angemeldet.`);
+      }
     } catch (err) {
-      showAuthError('loginError', err.message.startsWith('Zu dieser') || err.message.startsWith('Das Passwort') ? err.message : 'Die Anmeldung hat nicht geklappt. Bitte versuche es noch einmal.');
+      if (err.notConfirmed) { showVerify(email); showAuthError('verifyError', 'Deine E-Mail ist noch nicht bestätigt. Bitte tippe zuerst auf den Link in der E-Mail.'); return; }
+      showAuthError('loginError', genericError(err, 'Die Anmeldung hat nicht geklappt. Bitte versuche es noch einmal.'));
     }
   });
 });
@@ -1381,17 +1511,74 @@ document.getElementById('registerForm').addEventListener('submit', (e) => {
   if (password !== repeat) { showAuthError('registerError', 'Die beiden Passwörter sind nicht gleich. Bitte gib sie noch einmal ein.'); return; }
   withBusy(e.submitter || e.target.querySelector('[type=submit]'), 'Konto wird erstellt …', async () => {
     try {
-      const { adopted } = await registerAccount(name, email, password);
-      e.target.reset();
-      startApp(adopted ? `✓ Willkommen ${name}! Deine bisherigen Daten sind jetzt in deinem Konto.` : `✓ Willkommen ${name}! Dein Konto ist erstellt.`);
+      if (CLOUD) {
+        const { needsConfirm } = await cloudRegister(name, email, password);
+        e.target.reset();
+        document.getElementById('loginEmail').value = email;
+        if (needsConfirm) showVerify(email);
+        else showAuthMode('login', '✓ Dein Konto ist erstellt. Melde dich jetzt an.');
+      } else {
+        const { adopted } = await registerAccount(name, email, password);
+        e.target.reset();
+        startApp(adopted ? `✓ Willkommen ${name}! Deine bisherigen Daten sind jetzt in deinem Konto.` : `✓ Willkommen ${name}! Dein Konto ist erstellt.`);
+      }
     } catch (err) {
-      showAuthError('registerError', err.message.startsWith('Mit dieser') ? err.message : 'Das Konto konnte nicht erstellt werden. Bitte versuche es noch einmal.');
+      showAuthError('registerError', genericError(err, 'Das Konto konnte nicht erstellt werden. Bitte versuche es noch einmal.'));
     }
   });
 });
 
-document.getElementById('forgotBtn').addEventListener('click', () => {
+document.getElementById('verifyDoneBtn').addEventListener('click', () => {
+  document.getElementById('loginEmail').value = document.getElementById('verifyPanel').dataset.email || '';
+  showAuthMode('login', 'Melde dich jetzt mit deiner E-Mail und deinem Passwort an.');
+  document.getElementById('loginPassword').focus();
+});
+
+document.getElementById('resendBtn').addEventListener('click', (e) => {
+  const email = document.getElementById('verifyPanel').dataset.email;
+  if (!email) return;
+  if (Date.now() < resendCooldown) {
+    showAuthError('verifyError', `Bitte warte noch ${Math.ceil((resendCooldown - Date.now()) / 1000)} Sekunden, bevor du die E-Mail noch einmal sendest.`);
+    return;
+  }
+  withBusy(e.currentTarget, 'Wird gesendet …', async () => {
+    try {
+      await cloudResend(email);
+      resendCooldown = Date.now() + 60000;
+      document.getElementById('verifyError').hidden = true;
+      showToast('✓ Die E-Mail wurde noch einmal gesendet.');
+    } catch (err) {
+      showAuthError('verifyError', genericError(err, 'Die E-Mail konnte nicht gesendet werden.'));
+    }
+  });
+});
+
+document.getElementById('resetForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const password = document.getElementById('resetPassword').value;
+  if (password.length < 8) { showAuthError('resetError', 'Das Passwort muss mindestens 8 Zeichen lang sein.'); return; }
+  if (password !== document.getElementById('resetPassword2').value) { showAuthError('resetError', 'Die beiden Passwörter sind nicht gleich.'); return; }
+  withBusy(e.submitter || e.target.querySelector('[type=submit]'), 'Wird gespeichert …', async () => {
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) { showAuthError('resetError', cloudErrorText(error)); return; }
+    await sb.auth.signOut();
+    e.target.reset();
+    showAuthMode('login', '✓ Dein neues Passwort ist gespeichert. Melde dich jetzt damit an.');
+  });
+});
+
+document.getElementById('forgotBtn').addEventListener('click', (e) => {
   const email = normEmail(document.getElementById('loginEmail').value);
+  if (CLOUD) {
+    if (!email) { showAuthError('loginError', 'Gib oben deine E-Mail ein und tippe dann noch einmal auf „Passwort vergessen?“.'); return; }
+    withBusy(e.currentTarget, 'Wird gesendet …', async () => {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: APP_URL });
+      if (error && cloudErrorText(error).startsWith('Zu viele')) { showAuthError('loginError', cloudErrorText(error)); return; }
+      document.getElementById('loginError').hidden = true;
+      showAuthMode('login', `Wenn es ein Konto mit ${email} gibt, haben wir dir eine E-Mail geschickt. Tippe auf den Link darin, um ein neues Passwort festzulegen.`);
+    });
+    return;
+  }
   const user = loadUsers().find(u => u.email === email);
   if (!user) {
     showAuthError('loginError', 'Gib oben die E-Mail deines Kontos ein und tippe dann noch einmal auf „Passwort vergessen?“.');
@@ -1407,11 +1594,59 @@ document.getElementById('forgotBtn').addEventListener('click', () => {
     });
 });
 
+async function logout() {
+  if (session && session.cloud) {
+    await flushCloudSave();
+    await sb.auth.signOut();
+  } else {
+    await saveChain;
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* egal */ }
+  }
+  location.reload();
+}
+
 document.getElementById('logoutBtn').addEventListener('click', () => {
   askConfirm('Abmelden?', 'Deine Daten bleiben gespeichert. Zum Weitermachen meldest du dich wieder mit E-Mail und Passwort an.', 'Ja, abmelden', logout);
 });
 
+async function initCloud() {
+  const type = INITIAL_HASH.get('type');
+  const hashError = INITIAL_HASH.get('error_description');
+  const { data: { session: sbSession } } = await sb.auth.getSession();
+
+  if (hashError) {
+    history.replaceState(null, '', APP_URL);
+    showAuth('login', /expired|invalid/i.test(hashError)
+      ? 'Der Link ist abgelaufen oder wurde schon benutzt. Melde dich an – falls deine E-Mail noch nicht bestätigt ist, kannst du die E-Mail noch einmal senden.'
+      : 'Der Link hat nicht funktioniert. Bitte versuche es noch einmal.');
+    return;
+  }
+  if (type === 'recovery' && sbSession) { showAuth('reset'); return; }
+  if ((type === 'signup' || type === 'email') && sbSession) {
+    // Bestätigt! Einmal mit Passwort anmelden, damit Daten von diesem Gerät übernommen werden können.
+    const email = sbSession.user.email;
+    await sb.auth.signOut();
+    document.getElementById('loginEmail').value = email;
+    showAuth('login', '✓ Deine E-Mail ist bestätigt. Melde dich jetzt mit deinem Passwort an.');
+    return;
+  }
+  if (sbSession) {
+    try {
+      const user = cloudUser(sbSession.user);
+      state = (await loadCloudData(user, null)).state;
+      session = { user, cloud: true };
+      startApp();
+      return;
+    } catch (err) {
+      showAuth('login', genericError(err, 'Bitte melde dich noch einmal an.'));
+      return;
+    }
+  }
+  showAuth();
+}
+
 async function initAuth() {
+  if (CLOUD) { initCloud(); return; }
   if (!window.crypto || !crypto.subtle) {
     document.getElementById('authScreen').hidden = false;
     document.querySelector('.phone').hidden = true;

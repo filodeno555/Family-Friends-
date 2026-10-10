@@ -37,6 +37,8 @@
       <button class="segment" type="button" role="tab" data-auth="register" aria-selected="false">Konto erstellen</button>
     </div>
 
+    <p class="preview" id="authInfo" role="status" hidden></p>
+
     <form id="loginForm" novalidate>
       <label class="field">
         <span class="field-label">E-Mail</span>
@@ -71,7 +73,7 @@
           <input type="password" id="registerPassword" autocomplete="new-password" minlength="8" required>
           <button type="button" class="pw-toggle" data-toggle-pw="registerPassword" aria-pressed="false">Anzeigen</button>
         </div>
-        <small>Mindestens 8 Zeichen. Merke es dir gut: Es kann nicht wiederhergestellt werden.</small>
+        <small id="registerPwHint">Mindestens 8 Zeichen. Merke es dir gut: Es kann nicht wiederhergestellt werden.</small>
       </div>
       <div class="field">
         <label class="field-label" for="registerPassword2"><b class="step">4</b> Passwort noch einmal</label>
@@ -84,7 +86,46 @@
       <button type="submit" class="btn primary full">Konto erstellen</button>
     </form>
 
-    <p class="auth-note">🔒 Deine Daten bleiben auf diesem Gerät und werden mit deinem Passwort verschlüsselt. Es gibt keinen Server.</p>
+    <!-- E-Mail bestätigen (nur mit Online-Konto) -->
+    <section id="verifyPanel" hidden aria-labelledby="verifyTitle">
+      <div class="verify-icon" aria-hidden="true">✉️</div>
+      <h2 class="auth-h2" id="verifyTitle">Bestätige deine E-Mail</h2>
+      <p class="auth-text">Wir haben eine E-Mail an <strong id="verifyEmail"></strong> geschickt.</p>
+      <ol class="verify-steps">
+        <li>Öffne dein E-Mail-Postfach.</li>
+        <li>Öffne die E-Mail von Family Friends. Schau auch im Spam-Ordner nach.</li>
+        <li>Tippe in der E-Mail auf den Link zum Bestätigen.</li>
+        <li>Danach meldest du dich hier mit E-Mail und Passwort an.</li>
+      </ol>
+      <p class="form-error" id="verifyError" role="alert" hidden></p>
+      <button type="button" class="btn primary full" id="verifyDoneBtn">Ich habe bestätigt – zur Anmeldung</button>
+      <button type="button" class="btn secondary full" id="resendBtn">E-Mail noch einmal senden</button>
+    </section>
+
+    <!-- Neues Passwort festlegen (nach Klick auf den Link in der E-Mail) -->
+    <form id="resetForm" novalidate hidden aria-labelledby="resetTitle">
+      <h2 class="auth-h2" id="resetTitle">Neues Passwort festlegen</h2>
+      <p class="auth-text">Wähle ein neues Passwort für dein Konto.</p>
+      <div class="field">
+        <label class="field-label" for="resetPassword"><b class="step">1</b> Neues Passwort</label>
+        <div class="pw-wrap">
+          <input type="password" id="resetPassword" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="pw-toggle" data-toggle-pw="resetPassword" aria-pressed="false">Anzeigen</button>
+        </div>
+        <small>Mindestens 8 Zeichen.</small>
+      </div>
+      <div class="field">
+        <label class="field-label" for="resetPassword2"><b class="step">2</b> Passwort noch einmal</label>
+        <div class="pw-wrap">
+          <input type="password" id="resetPassword2" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="pw-toggle" data-toggle-pw="resetPassword2" aria-pressed="false">Anzeigen</button>
+        </div>
+      </div>
+      <p class="form-error" id="resetError" role="alert" hidden></p>
+      <button type="submit" class="btn primary full">Passwort speichern</button>
+    </form>
+
+    <p class="auth-note" id="authNote">🔒 Deine Daten bleiben auf diesem Gerät und werden mit deinem Passwort verschlüsselt. Es gibt keinen Server.</p>
   </div>
 </main>
 
@@ -720,6 +761,8 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

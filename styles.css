@@ -1079,3 +1079,14 @@ button { cursor: pointer; }
   .auth .segmented { background: var(--bg); }
   .auth .segment.active { background: var(--primary); color: var(--primary-ink); }
 }
+
+/* ---------- E-Mail bestätigen ---------- */
+.verify-icon { font-size: 44px; line-height: 1; margin-bottom: 8px; }
+.auth-h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 8px; }
+.auth-text { font-size: 16px; color: var(--text-secondary); margin: 0 0 16px; overflow-wrap: anywhere; }
+.auth-text strong { color: var(--text-primary); }
+.verify-steps { margin: 0 0 20px; padding-left: 22px; font-size: 16px; display: grid; gap: 8px; }
+.verify-steps li::marker { font-weight: 700; }
+#verifyPanel .btn.full + .btn.full { margin-top: 10px; }
+.auth-switch[hidden] { display: none; }
+#authInfo { margin-bottom: 18px; }

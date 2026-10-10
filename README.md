@@ -17,6 +17,10 @@ Eine kleine Web-App zum Verwalten privater Darlehen im Familien- und Freundeskre
 
 ## Anmeldung & Datenschutz
 
+**Mit Online-Konto (Supabase, empfohlen):** Nach dem Registrieren kommt eine **Bestätigungs-E-Mail**; anmelden kann man sich erst nach dem Klick auf den Link. „Passwort vergessen?“ schickt einen Link zum Zurücksetzen. Die Daten sind auf allen Geräten gleich. Einrichtung: siehe [SUPABASE.md](SUPABASE.md) (danach `config.js` ausfüllen).
+
+**Ohne Online-Konto** (solange `config.js` leer ist) gilt:
+
 - Beim Öffnen erscheint eine **Login-Seite**: *Anmelden* oder *Konto erstellen* (Name, E-Mail, Passwort mit mindestens 8 Zeichen).
 - Jedes Konto hat **eigene Daten**; mehrere Personen können dasselbe Gerät nutzen.
 - Die Daten werden mit dem Passwort **verschlüsselt** gespeichert (PBKDF2 mit 210.000 Runden → AES-GCM, über die Web Crypto API). Ohne Passwort sind sie nicht lesbar.
