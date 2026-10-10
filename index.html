@@ -170,6 +170,12 @@
         </div>
       </div>
 
+      <div class="section-head">
+        <h2 class="section-label">Dein Verleih-Topf</h2>
+        <button class="link-btn" id="btnPotEdit" hidden>Ändern ›</button>
+      </div>
+      <div id="potBlock"></div>
+
       <h2 class="section-label">Die nächsten 6 Monate</h2>
       <div class="card chart-card">
         <div class="legend" aria-hidden="true">
@@ -342,11 +348,60 @@
         <input type="number" id="loanInterest" min="0" step="0.1" required value="0" inputmode="decimal">
         <small>0 bedeutet: keine Zinsen.</small>
       </label>
+      <label class="switch-field" id="loanFromPotField" hidden>
+        <input type="checkbox" id="loanFromPot">
+        <span class="switch" aria-hidden="true"></span>
+        <span class="switch-text">
+          <strong>Aus deinem Verleih-Topf nehmen</strong>
+          <small id="loanFromPotHint"></small>
+        </span>
+      </label>
       <p class="preview" id="loanPreview" hidden></p>
+      <p class="form-error" id="loanError" role="alert" hidden></p>
       <div class="btn-row">
         <button type="button" class="btn secondary" data-close>Abbrechen</button>
         <button type="submit" class="btn primary">Speichern</button>
       </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== MODAL: Verleih-Topf ===== -->
+<div class="modal-overlay" id="potModalOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="potModalTitle">
+    <div class="modal-head">
+      <h3 id="potModalTitle">Verleih-Topf einrichten</h3>
+      <button class="close-btn" data-close aria-label="Schließen">✕</button>
+    </div>
+    <p class="modal-hint">Du legst fest, wie viel Geld du insgesamt verleihen möchtest. Wenn Raten zurückkommen, ist das Geld wieder im Topf und du kannst es erneut verleihen.</p>
+    <form id="potForm">
+      <label class="field">
+        <span class="field-label"><b class="step">1</b> Wie viel Geld möchtest du zum Verleihen anbieten? (in Euro)</span>
+        <input type="number" id="potAmount" min="1" step="1" required placeholder="1000" inputmode="numeric">
+      </label>
+      <label class="field">
+        <span class="field-label"><b class="step">2</b> Wie viele Zinsen pro Darlehen? (in Prozent)</span>
+        <input type="number" id="potInterest" min="0" step="0.1" required value="3" inputmode="decimal">
+        <small>Wird beim Verleihen aus dem Topf vorgeschlagen.</small>
+      </label>
+      <label class="field">
+        <span class="field-label"><b class="step">3</b> In wie vielen Raten wird meistens zurückgezahlt?</span>
+        <input type="number" id="potInstallments" min="1" step="1" required value="6" inputmode="numeric">
+        <small>1 Rate = 1 Monat. Wird beim Verleihen aus dem Topf vorgeschlagen.</small>
+      </label>
+      <label class="switch-field">
+        <input type="checkbox" id="potReinvest" checked>
+        <span class="switch" aria-hidden="true"></span>
+        <span class="switch-text">
+          <strong>Zinsen wieder verleihen</strong>
+          <small>An: Die Zinsen bleiben im Topf. So wächst dein Topf immer schneller (Zinseszins). Aus: Die Zinsen gehören dir und bleiben nicht im Topf.</small>
+        </span>
+      </label>
+      <div class="btn-row">
+        <button type="button" class="btn secondary" data-close>Abbrechen</button>
+        <button type="submit" class="btn primary">Speichern</button>
+      </div>
+      <button type="button" class="btn negative-btn full" id="potDelete" hidden>Topf auflösen</button>
     </form>
   </div>
 </div>
@@ -538,6 +593,8 @@
       <dd>Zeigt, wie viel Geld andere dir schulden und wie viel du anderen schuldest.</dd>
       <dt>Geldfluss</dt>
       <dd>Zeigt, wie viel Geld jeden Monat zu dir kommt und von dir weggeht. Und wie viel du durch Zinsen verdienst, wenn du Geld verleihst.</dd>
+      <dt>Verleih-Topf (auf der Seite Geldfluss)</dt>
+      <dd>Ein Betrag, den du zum Verleihen bereitstellst. Zurückgezahlte Raten kommen wieder in den Topf. Wenn du „Zinsen wieder verleihen“ einschaltest, bleiben auch die Zinsen im Topf. Dann wächst der Topf mit der Zeit immer schneller.</dd>
       <dt>Darlehen</dt>
       <dd>Ein Darlehen heißt: Eine Person gibt einer anderen Geld. Das Geld wird in Raten zurückgezahlt. 1 Rate = 1 Zahlung pro Monat.</dd>
       <dt>Anfragen</dt>

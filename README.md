@@ -7,6 +7,7 @@ Eine kleine Web-App zum Verwalten privater Darlehen im Familien- und Freundeskre
 
 - **Übersicht**: im Umlauf befindliches Geld, Anzahl Mitglieder und laufender Darlehen auf einen Blick
 - **Geldfluss**: wie viel Geld jeden Monat reinkommt und rausgeht, was übrig bleibt, wie viel du durch Zinsen beim Verleihen schon verdient hast und noch verdienst (gesamt und pro Darlehen), Diagramm + Tabelle für die nächsten 6 Monate
+- **Verleih-Topf** (Seite Geldfluss): einen Betrag zum Verleihen bereitstellen; zurückgezahlte Raten fließen zurück in den Topf, mit „Zinsen wieder verleihen“ auch die Zinsen (Zinseszins). Zeigt freies und verliehenes Geld, verdiente Zinsen und eine Schätzung, wie der Topf in 1–10 Jahren wachsen kann (mit/ohne Wiederverleihen). Beim Verleihen kann man „Aus deinem Verleih-Topf nehmen“ einschalten; mehr als frei ist, geht nicht.
 - **Darlehen**: neue Darlehen anlegen (verliehen oder geliehen) inklusive Verwendungszweck, Gesamtsumme nach Richtung (verliehen/geliehen/netto), Raten mit einem Klick verbuchen, Fortschritt als Balken, nach Richtung filterbar
 - **Genaue Rateninfos**: pro Darlehen aufklappbar — Gesamtbetrag, bereits gezahlt, offener Betrag, monatliche Rate, Startdatum, Gesamtbetrag inkl. Zins; zusätzlich "Rate X von Y abbezahlt" und Fälligkeits-/Überfälligkeitsdatum direkt auf der Karte
 - **Gruppen**: Personen im Kreis lassen sich Gruppen zuordnen (z. B. Familie, Freunde, Uni, Schule oder frei benannte eigene Gruppen)

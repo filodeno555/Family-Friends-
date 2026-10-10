@@ -7,6 +7,8 @@ const ME_ID = '__me__'; // repräsentiert die Person, die die App nutzt
 
 const seedData = {
   circleName: 'Müller & Friends',
+  // Verleih-Topf: Betrag, den du zum Verleihen bereitstellst (null = noch nicht eingerichtet)
+  pot: null,
   groups: [
     { id: 'g1', name: 'Familie' },
     { id: 'g2', name: 'Freunde' },
@@ -57,6 +59,7 @@ function loadState() {
       const data = JSON.parse(raw);
       if (!data.groups) data.groups = structuredClone(seedData.groups);
       if (!data.requests) data.requests = [];
+      if (data.pot === undefined) data.pot = null;
       data.members.forEach(m => { if (!m.groupIds) m.groupIds = []; });
       // Migration von der alten Darlehen-Struktur (memberId/direction) falls vorhanden
       data.loans = (data.loans || []).map(l => {
@@ -169,6 +172,37 @@ function flowForecast(months = 6) {
     }
   });
   return { buckets, overdue };
+}
+
+// ---------- Verleih-Topf ----------
+// Geld aus dem Topf wird verliehen; zurückgezahlte Raten fließen zurück in den Topf.
+// Mit „Zinsen wieder verleihen“ bleiben auch die Zinsen im Topf (Zinseszins).
+
+const potLoans = () => state.loans.filter(l => l.fromPot && l.lenderId === ME_ID);
+
+function potStats() {
+  const pot = state.pot;
+  if (!pot) return null;
+  const loans = potLoans();
+  const lent = loans.reduce((s, l) => s + l.amount, 0);
+  const returned = loans.reduce((s, l) => s + l.paidInstallments * loanRate(l), 0);
+  const interestEarned = loans.reduce((s, l) => s + loanInterestPaid(l), 0);
+  const outstanding = loans.reduce((s, l) => s + loanRemaining(l), 0);
+  const available = pot.amount - lent + returned - (pot.reinvest ? 0 : interestEarned);
+  const value = pot.amount + (pot.reinvest ? interestEarned : 0);
+  return { lent, returned, interestEarned, outstanding, available: Math.max(0, available), value, activeCount: loans.filter(isActive).length };
+}
+
+// Schätzung: Wie groß wird der Topf in X Jahren, wenn das Geld immer wieder verliehen wird?
+// Ein „Durchgang“ dauert so viele Monate wie Raten; pro Durchgang kommen die Zinsen dazu.
+function potForecast(years) {
+  const pot = state.pot;
+  const i = pot.interest / 100;
+  const rounds = (12 / pot.installments) * years;
+  return {
+    withReinvest: pot.amount * Math.pow(1 + i, rounds),
+    withoutReinvest: pot.amount * (1 + i * rounds),
+  };
 }
 
 function fundedAmount(request) {
@@ -563,6 +597,7 @@ function renderFlow() {
   document.getElementById('costPending').textContent = money(costTotal - interestCostPaid());
 
   renderFlowChart();
+  renderPot();
 }
 
 function renderFlowChart() {
@@ -609,6 +644,150 @@ function renderFlowChart() {
     col.addEventListener('mouseleave', hide);
     col.addEventListener('blur', hide);
   });
+}
+
+// ---------- Verleih-Topf anzeigen ----------
+
+const POT_YEARS = [1, 2, 3, 5, 10];
+
+function renderPot() {
+  const block = document.getElementById('potBlock');
+  const editBtn = document.getElementById('btnPotEdit');
+  const st = potStats();
+  editBtn.hidden = !st;
+  if (!st) {
+    block.innerHTML = `
+      <div class="card pot-empty">
+        <p class="pot-empty-title">Lass dein Geld für dich arbeiten</p>
+        <p class="card-sub">Lege einen Betrag fest, den du verleihen möchtest. Zurückgezahltes Geld und Zinsen kommen wieder in den Topf und können neu verliehen werden. So wächst dein Geld mit der Zeit immer schneller.</p>
+        <button class="btn primary full" id="btnPotCreate">Verleih-Topf einrichten</button>
+      </div>`;
+    document.getElementById('btnPotCreate').addEventListener('click', openPotModal);
+    return;
+  }
+  const pot = state.pot;
+  const fc = POT_YEARS.map(y => ({ y, ...potForecast(y) }));
+  const max = Math.max(...fc.map(f => f.withReinvest));
+  const pct = pot.amount ? Math.min(100, Math.round((st.available / pot.amount) * 100)) : 0;
+
+  block.innerHTML = `
+    <div class="card pot-card">
+      <p class="hero-label">Wert deines Topfs</p>
+      <p class="pot-value">${money(st.value)}</p>
+      <p class="card-sub">Startbetrag ${money(pot.amount)}${pot.reinvest && st.interestEarned ? ` · <span class="positive">+${money(st.interestEarned)} Zinsen</span>` : ''}</p>
+      <div class="pot-status">
+        <span class="status ${pot.reinvest ? 'ok' : 'done'}">${pot.reinvest ? '↻ Zinsen werden wieder verliehen' : 'Zinsen werden nicht wieder verliehen'}</span>
+      </div>
+      <dl class="facts pot-facts">
+        <div class="fact big"><dt>Frei zum Verleihen</dt><dd class="positive">${money(st.available)}</dd></div>
+        <div class="fact"><dt>Gerade verliehen (${st.activeCount} ${st.activeCount === 1 ? 'Darlehen' : 'Darlehen'})</dt><dd>${money(st.outstanding)}</dd></div>
+        <div class="fact"><dt>Zinsen schon verdient</dt><dd>${money(st.interestEarned)}</dd></div>
+        ${pot.reinvest ? '' : `<div class="fact"><dt>Davon an dich ausgezahlt</dt><dd>${money(st.interestEarned)}</dd></div>`}
+        <div class="fact"><dt>Vorschlag pro Darlehen</dt><dd>${percent(pot.interest)} Zinsen · ${pot.installments} Raten</dd></div>
+      </dl>
+      <div class="progress-label"><span>Frei im Topf</span><span><strong>${pct} %</strong></span></div>
+      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${pct} Prozent des Topfs sind frei"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <button class="btn primary full" style="margin-top:4px" id="btnPotLend" ${st.available < 1 ? 'disabled' : ''}>${st.available < 1 ? 'Gerade ist alles verliehen' : `Aus dem Topf verleihen (bis ${money(st.available)})`}</button>
+    </div>
+
+    <h3 class="sub-label">So kann dein Topf wachsen</h3>
+    <div class="card chart-card" id="potChartCard">
+      <p class="card-sub" style="margin:0 0 12px">Wenn du ${money(pot.amount)} immer wieder zu ${percent(pot.interest)} in ${pot.installments} Raten verleihst und die Zinsen ${pot.reinvest ? 'wieder mitverleihst' : 'mitverleihen würdest'}:</p>
+      <div class="chart pot-chart" id="potChart" role="img" aria-label="Geschätzter Wert des Topfs nach 1, 2, 3, 5 und 10 Jahren. Die Zahlen stehen auch in der Tabelle darunter.">
+        ${fc.map((f, i) => `
+          <div class="chart-col" data-col="${i}" tabindex="0" aria-label="Nach ${f.y} ${f.y === 1 ? 'Jahr' : 'Jahren'}: ${money(f.withReinvest)}">
+            <div class="chart-bars"><div class="bar in wide" style="height:${(f.withReinvest / max) * 100}%"></div></div>
+            <span class="chart-label">${f.y} ${f.y === 1 ? 'Jahr' : 'J.'}</span>
+          </div>`).join('')}
+      </div>
+      <div class="chart-tooltip" id="potTooltip" hidden></div>
+      <table class="flow-table">
+        <caption class="sr-only">Geschätzter Wert des Topfs</caption>
+        <thead><tr><th scope="col">Nach</th><th scope="col">Zinsen wieder verliehen</th><th scope="col">Zinsen nicht verliehen</th></tr></thead>
+        <tbody>${fc.map(f => `<tr><th scope="row">${f.y} ${f.y === 1 ? 'Jahr' : 'Jahren'}</th><td class="positive">${money(f.withReinvest)}</td><td>${money(f.withoutReinvest)}</td></tr>`).join('')}</tbody>
+      </table>
+      <p class="summary-hint" style="margin-top:12px">Das ist eine Schätzung. Sie stimmt nur, wenn das Geld immer verliehen ist und alle pünktlich zurückzahlen. Zinsen sind Einnahmen und müssen eventuell versteuert werden.</p>
+    </div>`;
+
+  document.getElementById('btnPotLend').addEventListener('click', () => openLoanModal('verliehen', true));
+
+  const chart = document.getElementById('potChart');
+  const tip = document.getElementById('potTooltip');
+  const card = document.getElementById('potChartCard');
+  const show = (col) => {
+    const f = fc[Number(col.dataset.col)];
+    tip.innerHTML = `<strong>Nach ${f.y} ${f.y === 1 ? 'Jahr' : 'Jahren'}</strong><span class="positive">Mit Wiederverleihen: ${money(f.withReinvest)}</span><span>Ohne: ${money(f.withoutReinvest)}</span>`;
+    tip.hidden = false;
+    const c = card.getBoundingClientRect(), r = col.getBoundingClientRect();
+    tip.style.left = `${Math.min(Math.max(r.left - c.left + r.width / 2 - tip.offsetWidth / 2, 8), c.width - tip.offsetWidth - 8)}px`;
+    tip.style.top = `${chart.getBoundingClientRect().top - c.top + 4}px`;
+    chart.querySelectorAll('.chart-col').forEach(x => x.classList.toggle('dim', x !== col));
+  };
+  const hide = () => { tip.hidden = true; chart.querySelectorAll('.chart-col').forEach(x => x.classList.remove('dim')); };
+  chart.querySelectorAll('.chart-col').forEach(col => {
+    col.addEventListener('mouseenter', () => show(col));
+    col.addEventListener('focus', () => show(col));
+    col.addEventListener('click', () => show(col));
+    col.addEventListener('mouseleave', hide);
+    col.addEventListener('blur', hide);
+  });
+}
+
+function openPotModal() {
+  const pot = state.pot;
+  document.getElementById('potModalTitle').textContent = pot ? 'Verleih-Topf ändern' : 'Verleih-Topf einrichten';
+  document.getElementById('potAmount').value = pot ? pot.amount : '';
+  document.getElementById('potInterest').value = pot ? pot.interest : 3;
+  document.getElementById('potInstallments').value = pot ? pot.installments : 6;
+  document.getElementById('potReinvest').checked = pot ? pot.reinvest : true;
+  document.getElementById('potDelete').hidden = !pot;
+  openOverlay('potModalOverlay');
+}
+
+function savePot(e) {
+  e.preventDefault();
+  const amount = Number(document.getElementById('potAmount').value);
+  const interest = Number(document.getElementById('potInterest').value) || 0;
+  const installments = Number(document.getElementById('potInstallments').value);
+  const reinvest = document.getElementById('potReinvest').checked;
+  if (!amount || !installments) return;
+  const isNew = !state.pot;
+  state.pot = { amount, interest, installments, reinvest, createdAt: state.pot ? state.pot.createdAt : TODAY };
+  state.activity.unshift({
+    id: 'a' + Date.now(),
+    desc: isNew ? `Verleih-Topf mit ${money(amount)} eingerichtet` : `Verleih-Topf geändert (${money(amount)})`,
+    amount: 0, type: 'neutral', date: TODAY,
+  });
+  saveState();
+  renderAll();
+  closeOverlay('potModalOverlay');
+  showToast(isNew ? '✓ Dein Verleih-Topf ist eingerichtet.' : '✓ Dein Verleih-Topf wurde geändert.');
+}
+
+function deletePot() {
+  askConfirm('Topf auflösen?',
+    'Der Verleih-Topf wird gelöscht. Deine Darlehen bleiben erhalten, sie zählen nur nicht mehr zum Topf.',
+    'Ja, auflösen', () => {
+      state.pot = null;
+      state.loans.forEach(l => { delete l.fromPot; });
+      saveState();
+      renderAll();
+      closeOverlay('potModalOverlay');
+      showToast('Der Verleih-Topf wurde aufgelöst.');
+    });
+}
+
+function updatePotField() {
+  const lend = document.getElementById('loanDirection').value === 'verliehen';
+  const field = document.getElementById('loanFromPotField');
+  const st = potStats();
+  field.hidden = !(lend && st);
+  if (!field.hidden) {
+    document.getElementById('loanFromPotHint').textContent = `Frei im Topf: ${money(st.available)}`;
+  } else {
+    document.getElementById('loanFromPot').checked = false;
+  }
+  document.getElementById('loanError').hidden = true;
 }
 
 // ---------- Bestätigung ----------
@@ -682,17 +861,30 @@ function addLoan(e) {
   const direction = document.getElementById('loanDirection').value;
   if (!memberId || !amount || !installments) return;
 
+  const fromPot = direction === 'verliehen' && document.getElementById('loanFromPot').checked && !!state.pot;
+  if (fromPot) {
+    const free = potStats().available;
+    if (amount > free + 0.5) {
+      const err = document.getElementById('loanError');
+      err.textContent = `Im Topf sind nur ${money(free)} frei. Bitte gib einen kleineren Betrag ein oder schalte „Aus deinem Verleih-Topf nehmen“ aus.`;
+      err.hidden = false;
+      document.getElementById('loanAmount').focus();
+      return;
+    }
+  }
+
   const lenderId = direction === 'verliehen' ? ME_ID : memberId;
   const borrowerId = direction === 'verliehen' ? memberId : ME_ID;
 
   state.loans.unshift({
     id: 'l' + Date.now(), lenderId, borrowerId, purpose,
     amount, installments, paidInstallments: 0, interest, startDate: TODAY, groupId: null,
+    ...(fromPot ? { fromPot: true } : {}),
   });
   state.activity.unshift({
     id: 'a' + Date.now(),
     desc: direction === 'verliehen'
-      ? `Du hast ${memberName(memberId)} Geld gegeben${purpose ? ` (${purpose})` : ''}`
+      ? `Du hast ${memberName(memberId)} Geld gegeben${fromPot ? ' (aus dem Topf)' : ''}${purpose ? ` (${purpose})` : ''}`
       : `${memberName(memberId)} hat dir Geld gegeben${purpose ? ` (${purpose})` : ''}`,
     amount: direction === 'verliehen' ? -amount : amount,
     type: direction === 'verliehen' ? 'out' : 'in',
@@ -839,7 +1031,7 @@ function closeOverlay(id) {
   if (lastFocus) lastFocus.focus();
 }
 
-function openLoanModal(direction) {
+function openLoanModal(direction, fromPot = false) {
   const lend = direction === 'verliehen';
   document.getElementById('loanDirection').value = direction;
   document.getElementById('modalTitle').textContent = lend ? 'Geld verleihen' : 'Geld leihen';
@@ -847,6 +1039,14 @@ function openLoanModal(direction) {
     ? 'Du gibst einer Person Geld. Sie zahlt es dir in Raten zurück.'
     : 'Eine Person gibt dir Geld. Du zahlst es in Raten zurück.';
   document.getElementById('loanPersonLabel').textContent = lend ? 'An wen gibst du Geld?' : 'Von wem bekommst du Geld?';
+  updatePotField();
+  const usePot = lend && !!state.pot && fromPot;
+  document.getElementById('loanFromPot').checked = usePot;
+  if (usePot) {
+    document.getElementById('loanInterest').value = state.pot.interest;
+    document.getElementById('loanInstallments').value = state.pot.installments;
+    updateLoanPreview();
+  }
   openOverlay('modalOverlay');
 }
 
@@ -889,6 +1089,18 @@ document.getElementById('btnLend').addEventListener('click', () => openLoanModal
 document.getElementById('btnBorrow').addEventListener('click', () => openLoanModal('geliehen'));
 document.getElementById('btnNewLoanFromList').addEventListener('click', () => openLoanModal('verliehen'));
 document.getElementById('loanForm').addEventListener('submit', addLoan);
+document.getElementById('loanFromPot').addEventListener('change', (e) => {
+  document.getElementById('loanError').hidden = true;
+  if (e.target.checked && state.pot) {
+    document.getElementById('loanInterest').value = state.pot.interest;
+    if (!document.getElementById('loanInstallments').value) document.getElementById('loanInstallments').value = state.pot.installments;
+    updateLoanPreview();
+  }
+});
+document.getElementById('loanAmount').addEventListener('input', () => { document.getElementById('loanError').hidden = true; });
+document.getElementById('potForm').addEventListener('submit', savePot);
+document.getElementById('potDelete').addEventListener('click', deletePot);
+document.getElementById('btnPotEdit').addEventListener('click', openPotModal);
 ['loanAmount', 'loanInstallments', 'loanInterest'].forEach(id =>
   document.getElementById(id).addEventListener('input', updateLoanPreview));
 
@@ -913,7 +1125,7 @@ document.querySelectorAll('input[name=theme]').forEach(r => r.addEventListener('
 }));
 
 // Schließen: ✕-Knopf, „Abbrechen“, Klick auf den dunklen Hintergrund
-['modalOverlay', 'requestModalOverlay', 'offerModalOverlay', 'memberModalOverlay', 'groupModalOverlay', 'helpModalOverlay', 'settingsModalOverlay'].forEach(id => {
+['modalOverlay', 'requestModalOverlay', 'offerModalOverlay', 'memberModalOverlay', 'groupModalOverlay', 'helpModalOverlay', 'settingsModalOverlay', 'potModalOverlay'].forEach(id => {
   const overlay = document.getElementById(id);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeOverlay(id); });
   overlay.querySelectorAll('[data-close], .close-btn').forEach(btn => btn.addEventListener('click', () => closeOverlay(id)));
