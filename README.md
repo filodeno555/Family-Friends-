@@ -25,7 +25,8 @@ Die App ist bewusst einfach und vorhersehbar aufgebaut, damit sie auch für Mens
 - **Navigation mit Text unter jedem Symbol**, große Tipp-Flächen, Hilfe-Seite oben rechts
 - **Nummerierte Schritte in Formularen** mit kurzen Erklärungen und einer Zusammenfassung vor dem Speichern
 - **Sicherheitsfrage vor wichtigen Aktionen** (Rate eintragen, Angebot annehmen/ablehnen)
-- **Ruhiges, helles Banking-Design** (angelehnt an N26, ING, Revolut): dunkles Blau als Hauptfarbe, Grün = Geld kommt zu dir, Rot = Geld geht weg oder etwas ist zu spät, keine Animationen
+- **Minimalistisches Design** (angelehnt an Trade Republic): viel Weißraum, große Zahlen, schwarze Pill-Buttons, Grün = Geld kommt zu dir, Rot = Geld geht weg oder etwas ist zu spät, keine Animationen
+- **Einstellungen** (Zahnrad oben rechts): helle oder dunkle Darstellung oder automatisch wie das Gerät; die Wahl wird auf dem Gerät gespeichert
 
 ## Handy & Computer
 
