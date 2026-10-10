@@ -15,6 +15,17 @@ Eine kleine Web-App zum Verwalten privater Darlehen im Familien- und Freundeskre
 
 Alle Daten werden lokal im Browser gespeichert (`localStorage`) — es gibt kein Backend und keinen Server.
 
+## Bedienung & Design
+
+Die App ist bewusst einfach und vorhersehbar aufgebaut, damit sie auch für Menschen gut verständlich ist, die klare Strukturen brauchen (z. B. Autist:innen):
+
+- **Klare, wörtliche Sprache**: „Andere schulden dir“ / „Du schuldest anderen“ statt Fachbegriffen
+- **Gleicher Aufbau auf jeder Seite**: Titel, ein Satz „was du hier siehst“, dann die Inhalte
+- **Navigation mit Text unter jedem Symbol**, große Tipp-Flächen, Hilfe-Seite oben rechts
+- **Nummerierte Schritte in Formularen** mit kurzen Erklärungen und einer Zusammenfassung vor dem Speichern
+- **Sicherheitsfrage vor wichtigen Aktionen** (Rate eintragen, Angebot annehmen/ablehnen)
+- **Ruhiges, helles Banking-Design** (angelehnt an N26, ING, Revolut): dunkles Blau als Hauptfarbe, Grün = Geld kommt zu dir, Rot = Geld geht weg oder etwas ist zu spät, keine Animationen
+
 ## Nutzung
 
 Einfach `index.html` im Browser öffnen, es sind keine Build-Schritte oder Abhängigkeiten nötig.
