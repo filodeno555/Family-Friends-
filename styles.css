@@ -65,7 +65,7 @@ button { cursor: pointer; }
   display: flex;
   flex-direction: column;
   min-height: 700px;
-  overflow: hidden;
+  overflow: clip;
 }
 
 /* ---------- Header ---------- */
@@ -76,6 +76,9 @@ button { cursor: pointer; }
   padding: 18px 20px;
   background: var(--primary);
   color: var(--primary-ink);
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-mark {
@@ -105,7 +108,7 @@ button { cursor: pointer; }
 .help-btn:hover { background: rgba(255, 255, 255, 0.2); }
 
 /* ---------- Inhalt ---------- */
-.content { flex: 1; padding: 20px 18px 8px; overflow-y: auto; }
+.content { flex: 1; padding: 20px 18px 16px; }
 .screen { display: flex; flex-direction: column; }
 .screen[hidden] { display: none; }
 
@@ -379,7 +382,10 @@ button { cursor: pointer; }
   display: flex;
   background: var(--surface);
   border-top: 1px solid var(--line);
-  padding: 6px 4px 10px;
+  padding: 6px 4px calc(10px + env(safe-area-inset-bottom));
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
 }
 .tab {
   position: relative;

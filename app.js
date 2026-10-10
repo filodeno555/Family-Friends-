@@ -679,7 +679,6 @@ function switchTab(tabName) {
     t.classList.toggle('active', active);
     if (active) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
   });
-  document.querySelector('.content').scrollTop = 0;
   window.scrollTo(0, 0);
 }
 
