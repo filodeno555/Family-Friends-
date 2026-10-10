@@ -108,9 +108,12 @@ function membersInGroup(groupId) {
 
 // ---------- Berechnungen ----------
 
-function loanRate(loan) { return loan.amount / loan.installments; }
-function loanRemaining(loan) { return Math.max(0, (loan.installments - loan.paidInstallments) * loanRate(loan)); }
+// Eine Rate enthält den Anteil am Betrag plus den Anteil an den Zinsen.
+function loanRate(loan) { return loanTotalWithInterest(loan) / loan.installments; }
 function loanTotalWithInterest(loan) { return loan.amount * (1 + loan.interest / 100); }
+function loanInterestTotal(loan) { return loan.amount * loan.interest / 100; }
+function loanInterestPaid(loan) { return loanInterestTotal(loan) * loan.paidInstallments / loan.installments; }
+function loanRemaining(loan) { return Math.max(0, (loan.installments - loan.paidInstallments) * loanRate(loan)); }
 
 function nextDueDate(loan) {
   const d = new Date(loan.startDate);
@@ -129,6 +132,44 @@ function totalLentByMe() { return state.loans.filter(l => l.lenderId === ME_ID).
 function totalBorrowedByMe() { return state.loans.filter(l => l.borrowerId === ME_ID).reduce((s, l) => s + loanRemaining(l), 0); }
 function activeLoanCount() { return state.loans.filter(l => l.paidInstallments < l.installments).length; }
 function openRequestCount() { return state.requests.filter(r => r.status === 'offen').length; }
+
+// ---------- Geldfluss ----------
+
+const isActive = (l) => l.paidInstallments < l.installments;
+const myLent = () => state.loans.filter(l => l.lenderId === ME_ID);
+const myBorrowed = () => state.loans.filter(l => l.borrowerId === ME_ID);
+
+function monthlyIn() { return myLent().filter(isActive).reduce((s, l) => s + loanRate(l), 0); }
+function monthlyOut() { return myBorrowed().filter(isActive).reduce((s, l) => s + loanRate(l), 0); }
+
+function profitEarned() { return myLent().reduce((s, l) => s + loanInterestPaid(l), 0); }
+function profitTotal() { return myLent().reduce((s, l) => s + loanInterestTotal(l), 0); }
+function interestCostPaid() { return myBorrowed().reduce((s, l) => s + loanInterestPaid(l), 0); }
+function interestCostTotal() { return myBorrowed().reduce((s, l) => s + loanInterestTotal(l), 0); }
+
+// Verteilt alle offenen Raten auf die nächsten Monate. Überfällige Raten zählen zum aktuellen Monat.
+function flowForecast(months = 6) {
+  const now = new Date(TODAY);
+  const base = now.getFullYear() * 12 + now.getMonth();
+  const buckets = Array.from({ length: months }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    return { label: d.toLocaleDateString('de-DE', { month: 'short' }), full: d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }), in: 0, out: 0 };
+  });
+  let overdue = 0;
+  state.loans.forEach(l => {
+    const dir = l.lenderId === ME_ID ? 'in' : (l.borrowerId === ME_ID ? 'out' : null);
+    if (!dir) return;
+    const start = new Date(l.startDate);
+    for (let k = l.paidInstallments + 1; k <= l.installments; k++) {
+      const due = new Date(start.getFullYear(), start.getMonth() + k, start.getDate());
+      const idx = due.getFullYear() * 12 + due.getMonth() - base;
+      if (due < now && dir === 'in') overdue += 1;
+      const bucket = buckets[Math.max(0, idx)];
+      if (bucket) bucket[dir] += loanRate(l);
+    }
+  });
+  return { buckets, overdue };
+}
 
 function fundedAmount(request) {
   return request.offers.filter(o => o.status === 'angenommen').reduce((s, o) => s + o.amount, 0);
@@ -189,6 +230,7 @@ function renderAll() {
   renderLoanList(document.getElementById('loanFullList'), filteredLoans());
   renderActivity(document.getElementById('activityPreviewList'), state.activity.slice(0, 3));
   renderActivity(document.getElementById('activityFullList'), state.activity);
+  renderFlow();
   renderMembers();
   renderGroupFilters();
   renderRequests();
@@ -267,6 +309,7 @@ function loanCardHTML(loan) {
       <button class="details-toggle" data-toggle="${loan.id}" aria-expanded="${expanded}">${expanded ? '▲ Weniger anzeigen' : '▼ Mehr anzeigen'}</button>
       <dl class="details" ${expanded ? '' : 'hidden'}>
         <div class="fact"><dt>Betrag am Anfang</dt><dd>${money(loan.amount)}</dd></div>
+        <div class="fact"><dt>Zinsen in Euro</dt><dd>${money(loanInterestTotal(loan))}</dd></div>
         <div class="fact"><dt>Schon bezahlt</dt><dd>${money(loan.paidInstallments * rate)}</dd></div>
         <div class="fact"><dt>Noch offen</dt><dd>${money(loanRemaining(loan))}</dd></div>
         <div class="fact"><dt>1 Rate (pro Monat)</dt><dd>${money(rate)}</dd></div>
@@ -381,7 +424,7 @@ function offerHTML(offer, request, isHistory) {
         <span>${esc(memberName(offer.offererId))} gibt <strong>${money(offer.amount)}</strong></span>
         ${OFFER_STATUS[offer.status] || ''}
       </div>
-      <p class="offer-terms">Zurückzahlen in ${offer.installments} Raten zu je ${money(offer.amount / offer.installments)} · Zinsen: ${percent(offer.interest)}</p>
+      <p class="offer-terms">Zurückzahlen in ${offer.installments} Raten zu je ${money(offer.amount * (1 + offer.interest / 100) / offer.installments)} · Zinsen: ${percent(offer.interest)}</p>
       ${offer.status === 'ausstehend' && !isHistory ? `
         <div class="btn-row">
           <button class="btn negative-btn small" data-decline-offer="${offer.id}" data-req="${request.id}">✕ Ablehnen</button>
@@ -404,7 +447,7 @@ function requestCardHTML(r, isHistory) {
       </div>
       <dl class="facts">
         <div class="fact"><dt>Wofür</dt><dd>${esc(r.purpose)}</dd></div>
-        <div class="fact"><dt>Zurückzahlen in</dt><dd>${r.installments} Raten zu je ${money(r.amount / r.installments)}</dd></div>
+        <div class="fact"><dt>Zurückzahlen in</dt><dd>${r.installments} Raten zu je ${money(r.amount * (1 + r.interest / 100) / r.installments)}</dd></div>
         <div class="fact"><dt>Zinsen</dt><dd>${percent(r.interest)}</dd></div>
         <div class="fact"><dt>Gefragt am</dt><dd>${formatDateFull(r.date)}</dd></div>
       </dl>
@@ -464,8 +507,108 @@ function updateLoanPreview() {
   if (!amount || !installments) { preview.hidden = true; return; }
   preview.hidden = false;
   preview.textContent = `Zusammenfassung: ${money(amount)} in ${installments} ${installments === 1 ? 'Rate' : 'Raten'}. ` +
-    `Das sind ${money(amount / installments)} pro Monat.` +
-    (interest ? ` Mit Zinsen insgesamt ${money(amount * (1 + interest / 100))}.` : ' Keine Zinsen.');
+    `Mit ${interest ? `Zinsen insgesamt ${money(amount * (1 + interest / 100))}` : 'keinen Zinsen'}. ` +
+    `Das sind ${money(amount * (1 + interest / 100) / installments)} pro Monat.` +
+    (interest ? ` Der Gewinn durch Zinsen ist ${money(amount * interest / 100)}.` : '');
+}
+
+// ---------- Geldfluss-Seite ----------
+
+const signedMoney = (n) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${money(Math.abs(n))}`;
+
+function renderFlow() {
+  const inM = monthlyIn(), outM = monthlyOut(), net = inM - outM;
+  const earned = profitEarned(), total = profitTotal();
+  const lentAmount = myLent().reduce((s, l) => s + l.amount, 0);
+
+  document.getElementById('miniNetFlow').textContent = signedMoney(net);
+  document.getElementById('miniNetFlow').className = `mini-value ${net > 0 ? 'positive' : net < 0 ? 'negative' : ''}`;
+  document.getElementById('miniNetFlowSub').textContent = `${money(inM)} rein · ${money(outM)} raus`;
+  document.getElementById('miniProfit').textContent = money(earned);
+  document.getElementById('miniProfitSub').textContent = `von ${money(total)} insgesamt`;
+
+  document.getElementById('flowIn').textContent = money(inM);
+  document.getElementById('flowOut').textContent = money(outM);
+  const netEl = document.getElementById('flowNet');
+  netEl.textContent = signedMoney(net);
+  netEl.className = net > 0 ? 'positive' : net < 0 ? 'negative' : '';
+  document.getElementById('flowNetHint').textContent =
+    net > 0 ? `Jeden Monat bekommst du ${money(net)} mehr, als du zahlst.`
+    : net < 0 ? `Jeden Monat zahlst du ${money(-net)} mehr, als du bekommst.`
+    : 'Gerade fließt jeden Monat gleich viel rein wie raus.';
+
+  document.getElementById('profitEarned').textContent = money(earned);
+  document.getElementById('profitPending').textContent = money(total - earned);
+  document.getElementById('profitTotal').textContent = money(total);
+  document.getElementById('profitHint').textContent = lentAmount
+    ? `Du hast insgesamt ${money(lentAmount)} verliehen. Dafür bekommst du ${money(total)} Zinsen. Das sind ${percent(Math.round((total / lentAmount) * 1000) / 10)} von deinem verliehenen Geld.`
+    : 'Du hast noch kein Geld verliehen.';
+
+  // Gewinn pro Darlehen
+  const lent = myLent();
+  document.getElementById('profitList').innerHTML = lent.length ? lent.map(l => `
+    <div class="activity-row">
+      <span class="activity-icon in" aria-hidden="true">%</span>
+      <span class="activity-text">
+        <span class="desc">${esc(memberName(l.borrowerId))}${l.purpose ? ` · ${esc(l.purpose)}` : ''}</span>
+        <span class="date">${money(l.amount)} zu ${percent(l.interest)} · ${money(loanInterestPaid(l))} von ${money(loanInterestTotal(l))} schon verdient</span>
+      </span>
+      <span class="amount in">+${money(loanInterestTotal(l))}</span>
+    </div>`).join('') : '<div class="empty-state">Du hast noch kein Geld verliehen.</div>';
+
+  // Zinsen, die ich selbst zahle
+  const costTotal = interestCostTotal();
+  document.getElementById('interestCostBlock').hidden = costTotal === 0;
+  document.getElementById('costPaid').textContent = money(interestCostPaid());
+  document.getElementById('costPending').textContent = money(costTotal - interestCostPaid());
+
+  renderFlowChart();
+}
+
+function renderFlowChart() {
+  const { buckets, overdue } = flowForecast(6);
+  const max = Math.max(1, ...buckets.map(b => Math.max(b.in, b.out)));
+  const chart = document.getElementById('flowChart');
+  chart.innerHTML = buckets.map((b, i) => `
+    <div class="chart-col" data-col="${i}" tabindex="0" aria-label="${b.full}: ${money(b.in)} rein, ${money(b.out)} raus">
+      <div class="chart-bars">
+        <div class="bar in" style="height:${(b.in / max) * 100}%"></div>
+        <div class="bar out" style="height:${(b.out / max) * 100}%"></div>
+      </div>
+      <span class="chart-label">${b.label}</span>
+    </div>`).join('');
+
+  document.getElementById('flowTableBody').innerHTML = buckets.map(b => {
+    const n = b.in - b.out;
+    return `<tr><th scope="row">${b.full}</th><td class="positive">${money(b.in)}</td><td class="negative">${money(b.out)}</td><td class="${n > 0 ? 'positive' : n < 0 ? 'negative' : ''}">${signedMoney(n)}</td></tr>`;
+  }).join('');
+
+  const hint = document.getElementById('flowOverdueHint');
+  hint.hidden = overdue === 0;
+  hint.textContent = overdue === 1
+    ? '! 1 Rate an dich ist zu spät. Sie ist im aktuellen Monat mitgezählt.'
+    : `! ${overdue} Raten an dich sind zu spät. Sie sind im aktuellen Monat mitgezählt.`;
+
+  const tip = document.getElementById('flowTooltip');
+  const card = chart.closest('.chart-card');
+  const show = (col) => {
+    const b = buckets[Number(col.dataset.col)];
+    tip.innerHTML = `<strong>${b.full}</strong><span class="positive">↓ Rein: ${money(b.in)}</span><span class="negative">↑ Raus: ${money(b.out)}</span><span>Übrig: ${signedMoney(b.in - b.out)}</span>`;
+    tip.hidden = false;
+    const c = card.getBoundingClientRect(), r = col.getBoundingClientRect();
+    const left = Math.min(Math.max(r.left - c.left + r.width / 2 - tip.offsetWidth / 2, 8), c.width - tip.offsetWidth - 8);
+    tip.style.left = `${left}px`;
+    tip.style.top = `${chart.getBoundingClientRect().top - c.top + 4}px`;
+    chart.querySelectorAll('.chart-col').forEach(x => x.classList.toggle('dim', x !== col));
+  };
+  const hide = () => { tip.hidden = true; chart.querySelectorAll('.chart-col').forEach(x => x.classList.remove('dim')); };
+  chart.querySelectorAll('.chart-col').forEach(col => {
+    col.addEventListener('mouseenter', () => show(col));
+    col.addEventListener('focus', () => show(col));
+    col.addEventListener('click', () => show(col));
+    col.addEventListener('mouseleave', hide);
+    col.addEventListener('blur', hide);
+  });
 }
 
 // ---------- Bestätigung ----------
@@ -763,7 +906,14 @@ document.querySelectorAll('.segment[data-filter]').forEach(f => f.addEventListen
   renderLoanList(document.getElementById('loanFullList'), filteredLoans());
 }));
 
+const TAB_ORDER = ['uebersicht', 'geldfluss', 'darlehen', 'anfragen', 'kreis', 'aktivitaet'];
 document.addEventListener('keydown', (e) => {
+  const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+  const modalOpen = document.querySelector('.modal-overlay:not([hidden])');
+  if (!typing && !modalOpen && !e.metaKey && !e.ctrlKey && !e.altKey && /^[1-6]$/.test(e.key)) {
+    switchTab(TAB_ORDER[Number(e.key) - 1]);
+    return;
+  }
   if (e.key !== 'Escape') return;
   if (!document.getElementById('confirmModalOverlay').hidden) { closeConfirm(); return; }
   document.querySelectorAll('.modal-overlay:not([hidden])').forEach(o => closeOverlay(o.id));

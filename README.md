@@ -6,6 +6,7 @@ Eine kleine Web-App zum Verwalten privater Darlehen im Familien- und Freundeskre
 ## Funktionen
 
 - **Übersicht**: im Umlauf befindliches Geld, Anzahl Mitglieder und laufender Darlehen auf einen Blick
+- **Geldfluss**: wie viel Geld jeden Monat reinkommt und rausgeht, was übrig bleibt, wie viel du durch Zinsen beim Verleihen schon verdient hast und noch verdienst (gesamt und pro Darlehen), Diagramm + Tabelle für die nächsten 6 Monate
 - **Darlehen**: neue Darlehen anlegen (verliehen oder geliehen) inklusive Verwendungszweck, Gesamtsumme nach Richtung (verliehen/geliehen/netto), Raten mit einem Klick verbuchen, Fortschritt als Balken, nach Richtung filterbar
 - **Genaue Rateninfos**: pro Darlehen aufklappbar — Gesamtbetrag, bereits gezahlt, offener Betrag, monatliche Rate, Startdatum, Gesamtbetrag inkl. Zins; zusätzlich "Rate X von Y abbezahlt" und Fälligkeits-/Überfälligkeitsdatum direkt auf der Karte
 - **Gruppen**: Personen im Kreis lassen sich Gruppen zuordnen (z. B. Familie, Freunde, Uni, Schule oder frei benannte eigene Gruppen)
@@ -25,6 +26,13 @@ Die App ist bewusst einfach und vorhersehbar aufgebaut, damit sie auch für Mens
 - **Nummerierte Schritte in Formularen** mit kurzen Erklärungen und einer Zusammenfassung vor dem Speichern
 - **Sicherheitsfrage vor wichtigen Aktionen** (Rate eintragen, Angebot annehmen/ablehnen)
 - **Ruhiges, helles Banking-Design** (angelehnt an N26, ING, Revolut): dunkles Blau als Hauptfarbe, Grün = Geld kommt zu dir, Rot = Geld geht weg oder etwas ist zu spät, keine Animationen
+
+## Handy & Computer
+
+- **Handy**: volle Bildschirmbreite, Navigation unten, große Tipp-Flächen. Über „Zum Home-Bildschirm hinzufügen“ lässt sich die App wie eine normale App mit eigenem Symbol starten.
+- **Computer (z. B. MacBook)**: Navigation links als Seitenleiste, breiterer Inhalt mit Karten in zwei Spalten, Fenster mittig. Mit den Tasten 1–6 wechselst du die Seite, mit Esc schließt du ein Fenster.
+
+Hinweis: Raten enthalten jetzt auch den Zinsanteil (Gesamtbetrag inkl. Zinsen ÷ Anzahl Raten).
 
 ## Nutzung
 

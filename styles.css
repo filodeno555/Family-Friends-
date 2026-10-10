@@ -34,19 +34,13 @@
 
 html, body {
   margin: 0;
-  background: #e4e9f0;
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   color: var(--text-primary);
   font-size: 16px;
   line-height: 1.45;
 }
 
-body {
-  display: flex;
-  justify-content: center;
-  padding: 32px 16px;
-  min-height: 100vh;
-}
+body { min-height: 100vh; background: var(--bg); -webkit-tap-highlight-color: transparent; }
 
 button, input, select { font-family: inherit; color: inherit; font-size: inherit; }
 button { cursor: pointer; }
@@ -56,16 +50,14 @@ button { cursor: pointer; }
 .positive { color: var(--positive); }
 .negative { color: var(--negative); }
 
+/* Handy & Tablet: volle Breite, Navigation unten. Computer: Navigation links (siehe ganz unten). */
 .phone {
-  width: 400px;
-  max-width: 100%;
+  width: 100%;
   background: var(--bg);
-  border-radius: 28px;
-  box-shadow: 0 30px 60px -30px rgba(15, 27, 45, 0.35);
   display: flex;
   flex-direction: column;
-  min-height: 700px;
-  overflow: clip;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* ---------- Header ---------- */
@@ -73,7 +65,7 @@ button { cursor: pointer; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 20px;
+  padding: calc(14px + env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 14px max(20px, env(safe-area-inset-left));
   background: var(--primary);
   color: var(--primary-ink);
   position: sticky;
@@ -108,7 +100,7 @@ button { cursor: pointer; }
 .help-btn:hover { background: rgba(255, 255, 255, 0.2); }
 
 /* ---------- Inhalt ---------- */
-.content { flex: 1; padding: 20px 18px 16px; }
+.content { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 20px 18px 16px; }
 .screen { display: flex; flex-direction: column; }
 .screen[hidden] { display: none; }
 
@@ -513,7 +505,137 @@ button { cursor: pointer; }
 }
 .toast[hidden] { display: none; }
 
-@media (max-width: 440px) {
-  body { padding: 0; }
-  .phone { border-radius: 0; min-height: 100vh; width: 100%; }
+/* ---------- Geldfluss ---------- */
+.mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mini-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 2px;
 }
+.mini-label { font-size: 14px; color: var(--text-secondary); }
+.mini-value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mini-sub { font-size: 13px; color: var(--text-muted); }
+
+.wide-grid { display: grid; gap: 0 20px; }
+.section-label.first { margin-top: 0; }
+.wide-grid > div + div .section-label.first { margin-top: 24px; }
+.row-hint { display: block; font-size: 13px; color: var(--text-muted); }
+
+.chart-card { position: relative; }
+.legend { display: flex; gap: 18px; font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 14px; height: 14px; border-radius: 3px; }
+
+/* Rein = volle Farbe, Raus = gestreift: so sind beide auch ohne Farbsehen unterscheidbar */
+.swatch.in, .bar.in { background: var(--positive); }
+.swatch.out, .bar.out {
+  background: repeating-linear-gradient(135deg, var(--negative) 0 3px, #e58a84 3px 6px);
+}
+
+.chart {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  height: 200px;
+}
+.chart-col { display: flex; flex-direction: column; justify-content: flex-end; cursor: default; border-radius: 6px; outline-offset: 0; }
+.chart-col.dim { opacity: 0.45; }
+.chart-bars { flex: 1; border-bottom: 1px solid var(--text-muted); display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+.bar { width: 40%; max-width: 22px; border-radius: 4px 4px 0 0; }
+.chart-label { text-align: center; font-size: 13px; color: var(--text-secondary); padding-top: 6px; }
+.chart-tooltip {
+  position: absolute;
+  z-index: 5;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 16px rgba(15, 27, 45, 0.15);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  display: flex; flex-direction: column; gap: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.chart-tooltip[hidden] { display: none; }
+.chart-tooltip span { color: var(--text-primary); }
+
+.flow-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 15px; font-variant-numeric: tabular-nums; }
+.flow-table th, .flow-table td { padding: 9px 4px; text-align: right; border-top: 1px solid var(--line); }
+.flow-table th:first-child { text-align: left; font-weight: 500; }
+.flow-table thead th { color: var(--text-muted); font-size: 13px; font-weight: 600; border-top: none; }
+.flow-table td { font-weight: 600; }
+#flowOverdueHint { color: var(--negative); font-weight: 600; margin-top: 10px; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Tablet ---------- */
+@media (min-width: 600px) {
+  .wide-grid { grid-template-columns: 1fr 1fr; }
+  .wide-grid > div + div .section-label.first { margin-top: 0; }
+  .modal-overlay { align-items: center; }
+  .modal { border-radius: 20px; margin: 16px; }
+  .tab-bar { justify-content: center; }
+  .tab { max-width: 120px; }
+}
+
+/* ---------- Computer (z. B. MacBook): Navigation links, Inhalt breiter ---------- */
+@media (min-width: 960px) {
+  .phone {
+    display: grid;
+    grid-template-columns: 248px 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .app-header { grid-column: 1 / -1; padding: 16px 28px; }
+  .tab-bar {
+    grid-column: 1; grid-row: 2;
+    position: sticky; top: 72px; bottom: auto;
+    align-self: start;
+    height: calc(100vh - 72px);
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 20px 14px;
+    border-top: none;
+    border-right: 1px solid var(--line);
+  }
+  .tab {
+    flex: none; max-width: none;
+    flex-direction: row; justify-content: flex-start; gap: 12px;
+    padding: 12px 14px;
+    font-size: 16px;
+    min-height: 50px;
+  }
+  .tab:hover:not(.active) { background: var(--surface-soft); color: var(--text-primary); }
+  .tab-badge { position: static; margin-left: auto; order: 2; }
+  .tab::after {
+    content: attr(data-key);
+    margin-left: auto;
+    font-size: 12px; color: var(--text-muted);
+    border: 1px solid var(--line); border-radius: 5px;
+    padding: 0 6px;
+    order: 3;
+  }
+  .tab:has(.tab-badge:not([hidden]))::after { margin-left: 8px; }
+
+  .content { grid-column: 2; grid-row: 2; max-width: 1080px; padding: 32px 40px 24px; margin: 0; }
+  .screen-title { font-size: 30px; }
+
+  #loanFullList, #requestOpenList, #requestHistoryList, #memberList { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  #loanFullList > .empty-state, #requestOpenList > .empty-state, #requestHistoryList > .empty-state, #memberList > .empty-state { grid-column: 1 / -1; }
+  .action-list { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .action-item + .action-item { border-top: none; border-left: 1px solid var(--line); }
+  .mini-grid { grid-template-columns: 1fr 1fr; }
+  .chart { height: 240px; }
+
+  .sticky-action { bottom: 0; margin: 16px -40px -24px; padding: 14px 40px 20px; }
+  .sticky-action .btn.full { width: auto; min-width: 320px; }
+  .toast { bottom: 32px; }
+}
+
+@media (hover: hover) {
+  .card, .mini-card { transition: none; }
+  .link-btn:hover { color: var(--primary-hover); }
+}
+
