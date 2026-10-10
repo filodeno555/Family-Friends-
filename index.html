@@ -3,139 +3,184 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b2a5b">
 <title>Family Friends</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<div class="phone" role="application" aria-label="Family Friends">
+<div class="phone">
 
   <header class="app-header">
     <div class="brand">
-      <div class="brand-mark">FF</div>
+      <div class="brand-mark" aria-hidden="true">FF</div>
       <div>
         <p class="brand-name">Family Friends</p>
         <p class="brand-circle" id="circleName">Müller &amp; Friends</p>
       </div>
     </div>
-    <button class="icon-btn" id="menuBtn" aria-label="Menü">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    <button class="help-btn" id="helpBtn" aria-label="Hilfe öffnen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 015 0c0 1.7-2.5 2-2.5 4M12 17h.01"/></svg>
+      Hilfe
     </button>
   </header>
 
-  <!-- ===== ÜBERSICHT ===== -->
-  <section class="screen" id="screen-uebersicht" data-screen>
-    <p class="balance-label">Im Umlauf</p>
-    <p class="balance-value"><span id="balanceValue">0</span><span class="balance-currency">&nbsp;€</span></p>
-    <p class="balance-sub" id="balanceSub">0 Mitglieder · 0 laufende Darlehen</p>
+  <main class="content">
 
-    <div class="actions">
-      <button class="action primary" id="btnLend">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
-        Geld verleihen
-      </button>
-      <button class="action secondary" id="btnBorrow">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        Geld leihen
-      </button>
-    </div>
-    <button class="action tertiary full" id="btnNewRequestFromHome">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v12H8l-4 4V4z"/></svg>
-      Anfrage in einer Gruppe stellen
+    <!-- ===== START ===== -->
+    <section class="screen" id="screen-uebersicht" data-screen aria-labelledby="t-start">
+      <h1 class="screen-title" id="t-start">Start</h1>
+      <p class="screen-intro">Hier siehst du auf einen Blick, wie viel Geld offen ist.</p>
+
+      <div class="balance-card">
+        <div class="balance-row">
+          <span class="balance-label">Andere schulden dir</span>
+          <span class="balance-value positive" id="balanceOwedToMe">0&nbsp;€</span>
+        </div>
+        <div class="balance-row">
+          <span class="balance-label">Du schuldest anderen</span>
+          <span class="balance-value negative" id="balanceIOwe">0&nbsp;€</span>
+        </div>
+        <p class="balance-sub" id="balanceSub">0 Personen · 0 laufende Darlehen</p>
+      </div>
+
+      <h2 class="section-label">Was möchtest du tun?</h2>
+      <div class="action-list">
+        <button class="action-item" id="btnLend">
+          <span class="action-icon out" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+          </span>
+          <span class="action-text">
+            <strong>Geld verleihen</strong>
+            <span>Du gibst einer Person Geld. Sie zahlt es dir zurück.</span>
+          </span>
+          <span class="chevron" aria-hidden="true">›</span>
+        </button>
+        <button class="action-item" id="btnBorrow">
+          <span class="action-icon in" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+          </span>
+          <span class="action-text">
+            <strong>Geld leihen</strong>
+            <span>Eine Person gibt dir Geld. Du zahlst es zurück.</span>
+          </span>
+          <span class="chevron" aria-hidden="true">›</span>
+        </button>
+        <button class="action-item" id="btnNewRequestFromHome">
+          <span class="action-icon neutral" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H8l-4 4V4z"/></svg>
+          </span>
+          <span class="action-text">
+            <strong>Um Geld bitten</strong>
+            <span>Du fragst eine ganze Gruppe, wer dir Geld leihen kann.</span>
+          </span>
+          <span class="chevron" aria-hidden="true">›</span>
+        </button>
+      </div>
+
+      <div class="section-head">
+        <h2 class="section-label">Deine Darlehen</h2>
+        <button class="link-btn" data-goto="darlehen">Alle ansehen ›</button>
+      </div>
+      <div id="loanPreviewList" class="card-list"></div>
+
+      <div class="section-head">
+        <h2 class="section-label">Zuletzt passiert</h2>
+        <button class="link-btn" data-goto="aktivitaet">Alles ansehen ›</button>
+      </div>
+      <div class="activity" id="activityPreviewList"></div>
+    </section>
+
+    <!-- ===== DARLEHEN ===== -->
+    <section class="screen" id="screen-darlehen" data-screen hidden aria-labelledby="t-darlehen">
+      <h1 class="screen-title" id="t-darlehen">Darlehen</h1>
+      <p class="screen-intro">Hier stehen alle Darlehen. Wenn eine Rate bezahlt wurde, tippe auf „Rate wurde bezahlt“.</p>
+
+      <div class="summary-card">
+        <div class="summary-row">
+          <span>Andere schulden dir</span>
+          <strong class="positive" id="sumVerliehen">0&nbsp;€</strong>
+        </div>
+        <div class="summary-row">
+          <span>Du schuldest anderen</span>
+          <strong class="negative" id="sumGeliehen">0&nbsp;€</strong>
+        </div>
+        <div class="summary-row total">
+          <span>Unterschied</span>
+          <strong id="sumNetto">0&nbsp;€</strong>
+        </div>
+        <p class="summary-hint" id="sumNettoHint"></p>
+      </div>
+
+      <div class="segmented" role="group" aria-label="Darlehen filtern">
+        <button class="segment active" data-filter="alle" aria-pressed="true">Alle</button>
+        <button class="segment" data-filter="verliehen" aria-pressed="false">Ich gebe</button>
+        <button class="segment" data-filter="geliehen" aria-pressed="false">Ich bekomme</button>
+      </div>
+      <div id="loanFullList" class="card-list"></div>
+
+      <button class="btn primary full" id="btnNewLoanFromList">+ Neues Darlehen anlegen</button>
+    </section>
+
+    <!-- ===== ANFRAGEN ===== -->
+    <section class="screen" id="screen-anfragen" data-screen hidden aria-labelledby="t-anfragen">
+      <h1 class="screen-title" id="t-anfragen">Anfragen</h1>
+      <p class="screen-intro">Hier bittet jemand eine Gruppe um Geld. Andere können ein Angebot machen. Wird ein Angebot angenommen, entsteht ein Darlehen.</p>
+
+      <button class="btn primary full" id="btnNewRequest">+ Neue Anfrage stellen</button>
+
+      <h2 class="section-label">Gruppe auswählen</h2>
+      <div class="chip-row" id="groupFilterRow" role="group" aria-label="Nach Gruppe filtern"></div>
+
+      <h2 class="section-label">Offene Anfragen</h2>
+      <div id="requestOpenList" class="card-list"></div>
+
+      <h2 class="section-label">Erledigte Anfragen</h2>
+      <div id="requestHistoryList" class="card-list"></div>
+    </section>
+
+    <!-- ===== PERSONEN ===== -->
+    <section class="screen" id="screen-kreis" data-screen hidden aria-labelledby="t-kreis">
+      <h1 class="screen-title" id="t-kreis">Personen</h1>
+      <p class="screen-intro">Hier stehen alle Personen und ihre Gruppen. Die Zuverlässigkeit zeigt, wie gut eine Person bisher Geld zurückgezahlt hat.</p>
+
+      <div class="btn-row">
+        <button class="btn primary" id="btnNewMember">+ Person</button>
+        <button class="btn secondary" id="btnNewGroup">+ Gruppe</button>
+      </div>
+      <div id="memberList" class="card-list"></div>
+    </section>
+
+    <!-- ===== VERLAUF ===== -->
+    <section class="screen" id="screen-aktivitaet" data-screen hidden aria-labelledby="t-verlauf">
+      <h1 class="screen-title" id="t-verlauf">Verlauf</h1>
+      <p class="screen-intro">Hier steht alles, was passiert ist. Das Neueste steht oben.</p>
+      <div class="activity" id="activityFullList"></div>
+    </section>
+
+  </main>
+
+  <nav class="tab-bar" aria-label="Hauptmenü">
+    <button class="tab active" data-tab="uebersicht" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>
+      <span>Start</span>
     </button>
-
-    <div class="section-head" style="margin-top:22px;">
-      <p class="section-label">Aktive Darlehen</p>
-      <button class="link-btn" data-goto="darlehen">Alle ansehen</button>
-    </div>
-    <div id="loanPreviewList" class="loan-list"></div>
-
-    <div class="section-head" style="margin-top:22px;">
-      <p class="section-label">Letzte Aktivität</p>
-    </div>
-    <div class="activity" id="activityPreviewList"></div>
-  </section>
-
-  <!-- ===== DARLEHEN ===== -->
-  <section class="screen" id="screen-darlehen" data-screen hidden>
-    <div class="screen-title-row">
-      <h2 class="screen-title">Darlehen</h2>
-      <button class="pill-btn" id="btnNewLoanFromList">+ Neu</button>
-    </div>
-
-    <div class="summary-card">
-      <div class="summary-row">
-        <span>Gesamt verliehen</span>
-        <strong id="sumVerliehen">0&nbsp;€</strong>
-      </div>
-      <div class="summary-row">
-        <span>Gesamt geliehen</span>
-        <strong id="sumGeliehen">0&nbsp;€</strong>
-      </div>
-      <div class="summary-row net">
-        <span>Netto-Position</span>
-        <strong id="sumNetto">0&nbsp;€</strong>
-      </div>
-    </div>
-
-    <div class="filter-row">
-      <button class="filter active" data-filter="alle">Alle</button>
-      <button class="filter" data-filter="verliehen">Verliehen</button>
-      <button class="filter" data-filter="geliehen">Geliehen</button>
-    </div>
-    <div id="loanFullList" class="loan-list"></div>
-  </section>
-
-  <!-- ===== ANFRAGEN ===== -->
-  <section class="screen" id="screen-anfragen" data-screen hidden>
-    <div class="screen-title-row">
-      <h2 class="screen-title">Anfragen</h2>
-      <button class="pill-btn" id="btnNewRequest">+ Anfrage</button>
-    </div>
-
-    <div class="filter-row" id="groupFilterRow"></div>
-
-    <p class="section-label">Offen</p>
-    <div id="requestOpenList" class="loan-list"></div>
-
-    <p class="section-label" style="margin-top:20px;">Verlauf</p>
-    <div id="requestHistoryList" class="loan-list"></div>
-  </section>
-
-  <!-- ===== KREIS ===== -->
-  <section class="screen" id="screen-kreis" data-screen hidden>
-    <div class="screen-title-row">
-      <h2 class="screen-title">Kreis</h2>
-      <div style="display:flex; gap:8px;">
-        <button class="pill-btn" id="btnNewGroup">+ Gruppe</button>
-        <button class="pill-btn" id="btnNewMember">+ Person</button>
-      </div>
-    </div>
-    <div id="memberList" class="member-list"></div>
-  </section>
-
-  <!-- ===== AKTIVITÄT ===== -->
-  <section class="screen" id="screen-aktivitaet" data-screen hidden>
-    <h2 class="screen-title">Aktivität</h2>
-    <div class="activity" id="activityFullList"></div>
-  </section>
-
-  <nav class="tab-bar">
-    <button class="tab active" data-tab="uebersicht" aria-label="Übersicht">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>
+    <button class="tab" data-tab="darlehen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>
+      <span>Darlehen</span>
     </button>
-    <button class="tab" data-tab="darlehen" aria-label="Darlehen">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
-    </button>
-    <button class="tab" data-tab="anfragen" aria-label="Anfragen">
+    <button class="tab" data-tab="anfragen">
       <span class="tab-badge" id="requestBadge" hidden></span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h16v12H8l-4 4V4z"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16v12H8l-4 4V4z"/></svg>
+      <span>Anfragen</span>
     </button>
-    <button class="tab" data-tab="kreis" aria-label="Kreis">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3"/><path d="M2 21v-2a5 5 0 015-5h4a5 5 0 015 5v2"/><circle cx="18" cy="9" r="2.5"/><path d="M15.5 21v-1.5a4 4 0 014-4"/></svg>
+    <button class="tab" data-tab="kreis">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M2 21v-2a5 5 0 015-5h4a5 5 0 015 5v2"/><circle cx="18" cy="9" r="2.5"/><path d="M15.5 21v-1.5a4 4 0 014-4"/></svg>
+      <span>Personen</span>
     </button>
-    <button class="tab" data-tab="aktivitaet" aria-label="Aktivität">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+    <button class="tab" data-tab="aktivitaet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span>Verlauf</span>
     </button>
   </nav>
 </div>
@@ -145,111 +190,117 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-head">
       <h3 id="modalTitle">Geld verleihen</h3>
-      <button class="icon-btn" id="modalClose" aria-label="Schließen">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
+      <button class="close-btn" id="modalClose" aria-label="Schließen">✕</button>
     </div>
+    <p class="modal-hint" id="modalHint">Du gibst einer Person Geld. Sie zahlt es dir in Raten zurück.</p>
     <form id="loanForm">
       <input type="hidden" id="loanDirection" value="verliehen">
       <label class="field">
-        <span>Person</span>
+        <span class="field-label"><b class="step">1</b> <span id="loanPersonLabel">An wen gibst du Geld?</span></span>
         <select id="loanPerson" required></select>
       </label>
       <label class="field">
-        <span>Verwendungszweck</span>
+        <span class="field-label"><b class="step">2</b> Wofür ist das Geld?</span>
         <input type="text" id="loanPurpose" placeholder="z. B. Autoreparatur">
+        <small>Freiwillig. Hilft dir, dich später zu erinnern.</small>
       </label>
       <label class="field">
-        <span>Betrag (€)</span>
-        <input type="number" id="loanAmount" min="1" step="1" required placeholder="300">
+        <span class="field-label"><b class="step">3</b> Wie viel Geld? (in Euro)</span>
+        <input type="number" id="loanAmount" min="1" step="1" required placeholder="300" inputmode="numeric">
       </label>
-      <div class="field-row">
-        <label class="field">
-          <span>Raten</span>
-          <input type="number" id="loanInstallments" min="1" step="1" required placeholder="6">
-        </label>
-        <label class="field">
-          <span>Zins (%)</span>
-          <input type="number" id="loanInterest" min="0" step="0.1" required placeholder="2">
-        </label>
+      <label class="field">
+        <span class="field-label"><b class="step">4</b> In wie vielen Raten wird zurückgezahlt?</span>
+        <input type="number" id="loanInstallments" min="1" step="1" required placeholder="6" inputmode="numeric">
+        <small>1 Rate = 1 Zahlung pro Monat.</small>
+      </label>
+      <label class="field">
+        <span class="field-label"><b class="step">5</b> Zinsen (in Prozent)</span>
+        <input type="number" id="loanInterest" min="0" step="0.1" required value="0" inputmode="decimal">
+        <small>0 bedeutet: keine Zinsen.</small>
+      </label>
+      <p class="preview" id="loanPreview" hidden></p>
+      <div class="btn-row">
+        <button type="button" class="btn secondary" data-close>Abbrechen</button>
+        <button type="submit" class="btn primary">Speichern</button>
       </div>
-      <button type="submit" class="action primary full">Darlehen anlegen</button>
     </form>
   </div>
 </div>
 
-<!-- ===== MODAL: Neue Anfrage (in einer Gruppe) ===== -->
+<!-- ===== MODAL: Neue Anfrage ===== -->
 <div class="modal-overlay" id="requestModalOverlay" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle">
     <div class="modal-head">
-      <h3 id="requestModalTitle">Anfrage stellen</h3>
-      <button class="icon-btn" id="requestModalClose" aria-label="Schließen">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
+      <h3 id="requestModalTitle">Um Geld bitten</h3>
+      <button class="close-btn" id="requestModalClose" aria-label="Schließen">✕</button>
     </div>
+    <p class="modal-hint">Alle Personen in der Gruppe sehen diese Anfrage und können ein Angebot machen.</p>
     <form id="requestForm">
       <label class="field">
-        <span>Gruppe</span>
+        <span class="field-label"><b class="step">1</b> Welche Gruppe soll gefragt werden?</span>
         <select id="requestGroup" required></select>
       </label>
       <label class="field">
-        <span>Wer fragt an</span>
+        <span class="field-label"><b class="step">2</b> Wer braucht das Geld?</span>
         <select id="requestPerson" required></select>
       </label>
       <label class="field">
-        <span>Verwendungszweck</span>
+        <span class="field-label"><b class="step">3</b> Wofür ist das Geld?</span>
         <input type="text" id="requestPurpose" placeholder="z. B. neue Waschmaschine" required>
       </label>
       <label class="field">
-        <span>Gewünschter Betrag (€)</span>
-        <input type="number" id="requestAmount" min="1" step="1" required placeholder="250">
+        <span class="field-label"><b class="step">4</b> Wie viel Geld? (in Euro)</span>
+        <input type="number" id="requestAmount" min="1" step="1" required placeholder="250" inputmode="numeric">
       </label>
-      <div class="field-row">
-        <label class="field">
-          <span>Gewünschte Raten</span>
-          <input type="number" id="requestInstallments" min="1" step="1" required placeholder="5">
-        </label>
-        <label class="field">
-          <span>Gewünschter Zins (%)</span>
-          <input type="number" id="requestInterest" min="0" step="0.1" required placeholder="2">
-        </label>
+      <label class="field">
+        <span class="field-label"><b class="step">5</b> In wie vielen Raten zurückzahlen?</span>
+        <input type="number" id="requestInstallments" min="1" step="1" required placeholder="5" inputmode="numeric">
+        <small>1 Rate = 1 Zahlung pro Monat.</small>
+      </label>
+      <label class="field">
+        <span class="field-label"><b class="step">6</b> Zinsen (in Prozent)</span>
+        <input type="number" id="requestInterest" min="0" step="0.1" required value="0" inputmode="decimal">
+        <small>0 bedeutet: keine Zinsen.</small>
+      </label>
+      <div class="btn-row">
+        <button type="button" class="btn secondary" data-close>Abbrechen</button>
+        <button type="submit" class="btn primary">Anfrage senden</button>
       </div>
-      <button type="submit" class="action primary full">Anfrage in Gruppe stellen</button>
     </form>
   </div>
 </div>
 
-<!-- ===== MODAL: Angebot zu einer Anfrage ===== -->
+<!-- ===== MODAL: Angebot ===== -->
 <div class="modal-overlay" id="offerModalOverlay" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="offerModalTitle">
     <div class="modal-head">
       <h3 id="offerModalTitle">Angebot machen</h3>
-      <button class="icon-btn" id="offerModalClose" aria-label="Schließen">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
+      <button class="close-btn" id="offerModalClose" aria-label="Schließen">✕</button>
     </div>
     <form id="offerForm">
       <input type="hidden" id="offerRequestId">
       <p class="modal-hint" id="offerRequestHint"></p>
       <label class="field">
-        <span>Wer bietet an</span>
+        <span class="field-label"><b class="step">1</b> Wer gibt das Geld?</span>
         <select id="offerPerson" required></select>
       </label>
       <label class="field">
-        <span>Betrag, den du geben willst (€)</span>
-        <input type="number" id="offerAmount" min="1" step="1" required placeholder="100">
+        <span class="field-label"><b class="step">2</b> Wie viel Geld? (in Euro)</span>
+        <input type="number" id="offerAmount" min="1" step="1" required placeholder="100" inputmode="numeric">
       </label>
-      <div class="field-row">
-        <label class="field">
-          <span>Deine Raten-Bedingung</span>
-          <input type="number" id="offerInstallments" min="1" step="1" required placeholder="5">
-        </label>
-        <label class="field">
-          <span>Dein Zins (%)</span>
-          <input type="number" id="offerInterest" min="0" step="0.1" required placeholder="2">
-        </label>
+      <label class="field">
+        <span class="field-label"><b class="step">3</b> In wie vielen Raten zurückzahlen?</span>
+        <input type="number" id="offerInstallments" min="1" step="1" required placeholder="5" inputmode="numeric">
+      </label>
+      <label class="field">
+        <span class="field-label"><b class="step">4</b> Zinsen (in Prozent)</span>
+        <input type="number" id="offerInterest" min="0" step="0.1" required value="0" inputmode="decimal">
+        <small>0 bedeutet: keine Zinsen.</small>
+      </label>
+      <div class="btn-row">
+        <button type="button" class="btn secondary" data-close>Abbrechen</button>
+        <button type="submit" class="btn primary">Angebot senden</button>
       </div>
-      <button type="submit" class="action primary full">Angebot senden</button>
     </form>
   </div>
 </div>
@@ -259,20 +310,22 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="memberModalTitle">
     <div class="modal-head">
       <h3 id="memberModalTitle">Person hinzufügen</h3>
-      <button class="icon-btn" id="memberModalClose" aria-label="Schließen">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
+      <button class="close-btn" id="memberModalClose" aria-label="Schließen">✕</button>
     </div>
     <form id="memberForm">
       <label class="field">
-        <span>Name</span>
+        <span class="field-label"><b class="step">1</b> Wie heißt die Person?</span>
         <input type="text" id="memberName" required placeholder="z. B. Tante Sabine">
       </label>
       <div class="field">
-        <span>Gruppen</span>
+        <span class="field-label"><b class="step">2</b> In welchen Gruppen ist die Person?</span>
         <div class="checkbox-list" id="memberGroupsField"></div>
+        <small>Du kannst mehrere Gruppen auswählen.</small>
       </div>
-      <button type="submit" class="action primary full">Hinzufügen</button>
+      <div class="btn-row">
+        <button type="button" class="btn secondary" data-close>Abbrechen</button>
+        <button type="submit" class="btn primary">Speichern</button>
+      </div>
     </form>
   </div>
 </div>
@@ -282,21 +335,61 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="groupModalTitle">
     <div class="modal-head">
       <h3 id="groupModalTitle">Gruppe hinzufügen</h3>
-      <button class="icon-btn" id="groupModalClose" aria-label="Schließen">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
+      <button class="close-btn" id="groupModalClose" aria-label="Schließen">✕</button>
     </div>
     <form id="groupForm">
       <label class="field">
-        <span>Gruppenname</span>
+        <span class="field-label">Wie heißt die Gruppe?</span>
         <input type="text" id="groupName" required placeholder="z. B. Sportverein">
       </label>
-      <button type="submit" class="action primary full">Gruppe anlegen</button>
+      <div class="btn-row">
+        <button type="button" class="btn secondary" data-close>Abbrechen</button>
+        <button type="submit" class="btn primary">Speichern</button>
+      </div>
     </form>
   </div>
 </div>
 
-<div class="toast" id="toast" hidden></div>
+<!-- ===== MODAL: Bestätigen ===== -->
+<div class="modal-overlay" id="confirmModalOverlay" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+    <div class="modal-head">
+      <h3 id="confirmTitle">Bist du sicher?</h3>
+    </div>
+    <p class="confirm-text" id="confirmText"></p>
+    <div class="btn-row">
+      <button type="button" class="btn secondary" id="confirmNo">Nein, zurück</button>
+      <button type="button" class="btn primary" id="confirmYes">Ja</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: Hilfe ===== -->
+<div class="modal-overlay" id="helpModalOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modal-head">
+      <h3 id="helpTitle">So funktioniert die App</h3>
+      <button class="close-btn" data-close aria-label="Schließen">✕</button>
+    </div>
+    <dl class="help-list">
+      <dt>Start</dt>
+      <dd>Zeigt, wie viel Geld andere dir schulden und wie viel du anderen schuldest.</dd>
+      <dt>Darlehen</dt>
+      <dd>Ein Darlehen heißt: Eine Person gibt einer anderen Geld. Das Geld wird in Raten zurückgezahlt. 1 Rate = 1 Zahlung pro Monat.</dd>
+      <dt>Anfragen</dt>
+      <dd>Jemand bittet eine Gruppe um Geld. Andere machen ein Angebot. Wird das Angebot angenommen, entsteht ein Darlehen.</dd>
+      <dt>Personen</dt>
+      <dd>Alle Menschen in deinem Kreis. Zuverlässigkeit zeigt, wie pünktlich jemand bisher zurückgezahlt hat.</dd>
+      <dt>Verlauf</dt>
+      <dd>Eine Liste von allem, was passiert ist.</dd>
+      <dt>Farben</dt>
+      <dd><span class="positive">Grün</span> = Geld kommt zu dir. <span class="negative">Rot</span> = Geld geht von dir weg oder etwas ist zu spät.</dd>
+    </dl>
+    <button type="button" class="btn primary full" data-close>Verstanden</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="app.js"></script>
 </body>
