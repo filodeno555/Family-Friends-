@@ -1303,7 +1303,7 @@ async function restoreSession() {
 const CFG = window.FF_CONFIG || {};
 const CLOUD = !!(CFG.supabaseUrl && CFG.supabaseAnonKey && window.supabase);
 // Die Adresse der App: dorthin führen die Links in den E-Mails zurück
-const APP_URL = location.origin + location.pathname;
+const APP_URL = location.origin + location.pathname.replace(/index\.html$/, '');
 // Den Teil der Adresse nach „#“ merken, bevor Supabase ihn auswertet und entfernt
 const INITIAL_HASH = new URLSearchParams(location.hash.slice(1));
 const sb = CLOUD ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {
