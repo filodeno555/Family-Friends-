@@ -1063,9 +1063,23 @@ function applyTheme(theme) {
   try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* nur für diese Sitzung */ }
   updateThemeColor();
 }
+// Design (Minimal = Standard, Klassisch, Sanft)
+const DESIGN_KEY = 'ffDesign';
+function currentDesign() {
+  return document.documentElement.getAttribute('data-design') || 'minimal';
+}
+function applyDesign(design) {
+  if (design === 'klassisch' || design === 'sanft') document.documentElement.setAttribute('data-design', design);
+  else document.documentElement.removeAttribute('data-design');
+  try { localStorage.setItem(DESIGN_KEY, design); } catch (e) { /* nur für diese Sitzung */ }
+  updateThemeColor();
+}
+
 // Farbe der Browser-/Statusleiste an den Modus anpassen
 function updateThemeColor() {
-  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  const css = getComputedStyle(document.documentElement);
+  // Klassisch hat eine dunkelblaue Kopfzeile, sonst passt die Hintergrundfarbe
+  const bg = currentDesign() === 'klassisch' ? css.getPropertyValue('--primary-ink').trim() === '#ffffff' ? '#0b2a5b' : '#07183a' : css.getPropertyValue('--bg').trim();
   document.querySelectorAll('meta[name=theme-color]').forEach(m => { m.setAttribute('content', bg); m.removeAttribute('media'); });
 }
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeColor);
@@ -1117,8 +1131,14 @@ document.getElementById('groupForm').addEventListener('submit', addGroup);
 document.getElementById('helpBtn').addEventListener('click', () => openOverlay('helpModalOverlay'));
 document.getElementById('settingsBtn').addEventListener('click', () => {
   document.querySelectorAll('input[name=theme]').forEach(r => { r.checked = r.value === currentTheme(); });
+  document.querySelectorAll('input[name=design]').forEach(r => { r.checked = r.value === currentDesign(); });
   openOverlay('settingsModalOverlay');
 });
+const DESIGN_NAMES = { minimal: 'Minimal', klassisch: 'Klassisch', sanft: 'Sanft' };
+document.querySelectorAll('input[name=design]').forEach(r => r.addEventListener('change', () => {
+  applyDesign(r.value);
+  showToast(`✓ Das Design „${DESIGN_NAMES[r.value]}“ ist an.`);
+}));
 document.querySelectorAll('input[name=theme]').forEach(r => r.addEventListener('change', () => {
   applyTheme(r.value);
   showToast(r.value === 'light' ? '✓ Helle Darstellung ist an.' : r.value === 'dark' ? '✓ Dunkle Darstellung ist an.' : '✓ Die App sieht jetzt aus wie dein Gerät.');

@@ -7,7 +7,10 @@
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <script>
   // Gespeicherten Modus (hell/dunkel) sofort setzen, damit nichts aufblitzt
-  try { var t = localStorage.getItem('ffTheme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+  try {
+    var t = localStorage.getItem('ffTheme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    var d = localStorage.getItem('ffDesign'); if (d === 'klassisch' || d === 'sanft') document.documentElement.setAttribute('data-design', d);
+  } catch (e) {}
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -577,6 +580,33 @@
         </label>
       </div>
     </fieldset>
+    <fieldset class="theme-fieldset" style="border:0;padding:0;margin:0">
+      <legend class="settings-group-title">Design</legend>
+      <p class="settings-group-hint">Wähle, wie die App gestaltet ist. Jedes Design gibt es hell und dunkel.</p>
+      <div class="theme-options">
+        <label class="theme-option">
+          <input type="radio" name="design" value="minimal">
+          <span class="design-preview minimal" aria-hidden="true"><span class="dp-head"></span><span class="dp-body"><span class="dp-card"></span><span class="dp-btn"></span></span></span>
+          <strong>Minimal</strong>
+          <small>Schwarz-weiß, schlicht</small>
+          <span class="theme-check" aria-hidden="true">✓ Aktiv</span>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="design" value="klassisch">
+          <span class="design-preview klassisch" aria-hidden="true"><span class="dp-head"></span><span class="dp-body"><span class="dp-card"></span><span class="dp-btn"></span></span></span>
+          <strong>Klassisch</strong>
+          <small>Dunkelblau, wie vorher</small>
+          <span class="theme-check" aria-hidden="true">✓ Aktiv</span>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="design" value="sanft">
+          <span class="design-preview sanft" aria-hidden="true"><span class="dp-head"></span><span class="dp-body"><span class="dp-card"></span><span class="dp-btn"></span></span></span>
+          <strong>Sanft</strong>
+          <small>Violett, weich und rund</small>
+          <span class="theme-check" aria-hidden="true">✓ Aktiv</span>
+        </label>
+      </div>
+    </fieldset>
     <button type="button" class="btn primary full" data-close>Fertig</button>
   </div>
 </div>
@@ -606,7 +636,7 @@
       <dt>Am Computer (z. B. MacBook)</dt>
       <dd>Mit den Zahlen-Tasten 1 bis 6 wechselst du die Seite. Mit der Taste Esc schließt du ein Fenster.</dd>
       <dt>Einstellungen (Zahnrad oben rechts)</dt>
-      <dd>Hier stellst du ein, ob die App hell oder dunkel aussieht.</dd>
+      <dd>Hier stellst du ein, ob die App hell oder dunkel aussieht und welches Design sie hat (Minimal, Klassisch oder Sanft).</dd>
       <dt>Farben</dt>
       <dd><span class="positive">Grün</span> = Geld kommt zu dir. <span class="negative">Rot</span> = Geld geht von dir weg oder etwas ist zu spät.</dd>
     </dl>

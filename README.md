@@ -27,7 +27,7 @@ Die App ist bewusst einfach und vorhersehbar aufgebaut, damit sie auch für Mens
 - **Nummerierte Schritte in Formularen** mit kurzen Erklärungen und einer Zusammenfassung vor dem Speichern
 - **Sicherheitsfrage vor wichtigen Aktionen** (Rate eintragen, Angebot annehmen/ablehnen)
 - **Minimalistisches Design** (angelehnt an Trade Republic): viel Weißraum, große Zahlen, schwarze Pill-Buttons, Grün = Geld kommt zu dir, Rot = Geld geht weg oder etwas ist zu spät, keine Animationen
-- **Einstellungen** (Zahnrad oben rechts): helle oder dunkle Darstellung oder automatisch wie das Gerät; die Wahl wird auf dem Gerät gespeichert
+- **Einstellungen** (Zahnrad oben rechts): helle oder dunkle Darstellung oder automatisch wie das Gerät, dazu drei Designs: *Minimal* (Standard, schwarz-weiß), *Klassisch* (das vorherige dunkelblaue Design) und *Sanft* (Violett, weich und rund). Jedes Design gibt es hell und dunkel; die Wahl wird auf dem Gerät gespeichert
 
 ## Handy & Computer
 
