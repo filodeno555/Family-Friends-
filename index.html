@@ -25,7 +25,70 @@
 </head>
 <body>
 
-<div class="phone">
+<!-- ===== ANMELDUNG ===== -->
+<main class="auth" id="authScreen" hidden>
+  <div class="auth-card">
+    <img class="auth-logo" src="logo.svg" alt="" width="72" height="72">
+    <h1 class="auth-title">Family Friends</h1>
+    <p class="auth-sub">Geld leihen und verleihen in Familie und Freundeskreis – einfach und übersichtlich.</p>
+
+    <div class="segmented auth-switch" role="tablist" aria-label="Anmelden oder Konto erstellen">
+      <button class="segment active" type="button" role="tab" data-auth="login" aria-selected="true">Anmelden</button>
+      <button class="segment" type="button" role="tab" data-auth="register" aria-selected="false">Konto erstellen</button>
+    </div>
+
+    <form id="loginForm" novalidate>
+      <label class="field">
+        <span class="field-label">E-Mail</span>
+        <input type="email" id="loginEmail" autocomplete="username" placeholder="name@beispiel.de" required>
+      </label>
+      <div class="field">
+        <label class="field-label" for="loginPassword">Passwort</label>
+        <div class="pw-wrap">
+          <input type="password" id="loginPassword" autocomplete="current-password" required>
+          <button type="button" class="pw-toggle" data-toggle-pw="loginPassword" aria-pressed="false">Anzeigen</button>
+        </div>
+      </div>
+      <p class="form-error" id="loginError" role="alert" hidden></p>
+      <button type="submit" class="btn primary full">Anmelden</button>
+      <button type="button" class="link-btn auth-forgot" id="forgotBtn">Passwort vergessen?</button>
+    </form>
+
+    <form id="registerForm" novalidate hidden>
+      <p class="preview" id="legacyHint" hidden>Auf diesem Gerät gibt es schon Daten aus der App. Sie werden in dein neues Konto übernommen.</p>
+      <label class="field">
+        <span class="field-label"><b class="step">1</b> Wie heißt du?</span>
+        <input type="text" id="registerName" autocomplete="name" placeholder="z. B. Anna" required>
+      </label>
+      <label class="field">
+        <span class="field-label"><b class="step">2</b> Deine E-Mail</span>
+        <input type="email" id="registerEmail" autocomplete="email" placeholder="name@beispiel.de" required>
+        <small>Damit meldest du dich später an.</small>
+      </label>
+      <div class="field">
+        <label class="field-label" for="registerPassword"><b class="step">3</b> Wähle ein Passwort</label>
+        <div class="pw-wrap">
+          <input type="password" id="registerPassword" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="pw-toggle" data-toggle-pw="registerPassword" aria-pressed="false">Anzeigen</button>
+        </div>
+        <small>Mindestens 8 Zeichen. Merke es dir gut: Es kann nicht wiederhergestellt werden.</small>
+      </div>
+      <div class="field">
+        <label class="field-label" for="registerPassword2"><b class="step">4</b> Passwort noch einmal</label>
+        <div class="pw-wrap">
+          <input type="password" id="registerPassword2" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="pw-toggle" data-toggle-pw="registerPassword2" aria-pressed="false">Anzeigen</button>
+        </div>
+      </div>
+      <p class="form-error" id="registerError" role="alert" hidden></p>
+      <button type="submit" class="btn primary full">Konto erstellen</button>
+    </form>
+
+    <p class="auth-note">🔒 Deine Daten bleiben auf diesem Gerät und werden mit deinem Passwort verschlüsselt. Es gibt keinen Server.</p>
+  </div>
+</main>
+
+<div class="phone" hidden>
 
   <header class="app-header">
     <div class="brand">
@@ -553,6 +616,15 @@
       <h3 id="settingsTitle">Einstellungen</h3>
       <button class="close-btn" data-close aria-label="Schließen">✕</button>
     </div>
+    <p class="settings-group-title">Konto</p>
+    <div class="account-box">
+      <div class="avatar" id="accountAvatar" aria-hidden="true"></div>
+      <div class="account-text">
+        <strong id="accountName"></strong>
+        <small id="accountEmail"></small>
+      </div>
+      <button type="button" class="btn secondary small" id="logoutBtn">Abmelden</button>
+    </div>
     <fieldset class="theme-fieldset" style="border:0;padding:0;margin:0">
       <legend class="settings-group-title">Darstellung</legend>
       <p class="settings-group-hint">Wähle, wie die App aussieht. Die Wahl wird auf diesem Gerät gespeichert.</p>
@@ -637,6 +709,8 @@
       <dd>Mit den Zahlen-Tasten 1 bis 6 wechselst du die Seite. Mit der Taste Esc schließt du ein Fenster.</dd>
       <dt>Einstellungen (Zahnrad oben rechts)</dt>
       <dd>Hier stellst du ein, ob die App hell oder dunkel aussieht und welches Design sie hat (Minimal, Klassisch oder Sanft).</dd>
+      <dt>Konto</dt>
+      <dd>Deine Daten gehören zu deinem Konto und sind mit deinem Passwort geschützt. Abmelden kannst du dich in den Einstellungen. Wenn du die App schließt, musst du dich beim nächsten Mal wieder anmelden.</dd>
       <dt>Farben</dt>
       <dd><span class="positive">Grün</span> = Geld kommt zu dir. <span class="negative">Rot</span> = Geld geht von dir weg oder etwas ist zu spät.</dd>
     </dl>

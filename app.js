@@ -52,41 +52,61 @@ const seedData = {
   ],
 };
 
-function loadState() {
+// Bringt gespeicherte Daten (auch aus älteren App-Versionen) auf den aktuellen Stand.
+function normalizeState(data) {
+  if (!data.groups) data.groups = structuredClone(seedData.groups);
+  if (!data.requests) data.requests = [];
+  if (!data.members) data.members = [];
+  if (!data.activity) data.activity = [];
+  if (data.pot === undefined) data.pot = null;
+  data.members.forEach(m => { if (!m.groupIds) m.groupIds = []; });
+  // Migration von der alten Darlehen-Struktur (memberId/direction) falls vorhanden
+  data.loans = (data.loans || []).map(l => {
+    if (l.lenderId || l.borrowerId) return l;
+    return {
+      ...l,
+      lenderId: l.direction === 'verliehen' ? ME_ID : l.memberId,
+      borrowerId: l.direction === 'verliehen' ? l.memberId : ME_ID,
+      groupId: null,
+    };
+  });
+  data.requests = data.requests.map(r => {
+    if (r.requesterId) return r;
+    return { ...r, requesterId: r.memberId, groupId: r.groupId || null, offers: r.offers || [] };
+  });
+  return data;
+}
+
+// Neues, leeres Konto: nur die Standard-Gruppen, noch keine Personen oder Darlehen.
+function emptyState(name) {
+  return {
+    circleName: `Kreis von ${name}`,
+    pot: null,
+    groups: structuredClone(seedData.groups),
+    members: [], loans: [], requests: [], activity: [],
+  };
+}
+
+// Daten aus der Zeit vor dem Login (unverschlüsselt) — werden ins erste Konto übernommen.
+function legacyState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const data = JSON.parse(raw);
-      if (!data.groups) data.groups = structuredClone(seedData.groups);
-      if (!data.requests) data.requests = [];
-      if (data.pot === undefined) data.pot = null;
-      data.members.forEach(m => { if (!m.groupIds) m.groupIds = []; });
-      // Migration von der alten Darlehen-Struktur (memberId/direction) falls vorhanden
-      data.loans = (data.loans || []).map(l => {
-        if (l.lenderId || l.borrowerId) return l;
-        return {
-          ...l,
-          lenderId: l.direction === 'verliehen' ? ME_ID : l.memberId,
-          borrowerId: l.direction === 'verliehen' ? l.memberId : ME_ID,
-          groupId: null,
-        };
-      });
-      data.requests = data.requests.map(r => {
-        if (r.requesterId) return r;
-        return { ...r, requesterId: r.memberId, groupId: r.groupId || null, offers: r.offers || [] };
-      });
-      return data;
-    }
-  } catch (e) { /* falls localStorage nicht verfügbar ist, mit Seed-Daten starten */ }
-  return structuredClone(seedData);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
 }
 
+// Speichert verschlüsselt im Konto der angemeldeten Person (siehe „Anmeldung“ unten).
+let saveChain = Promise.resolve();
 function saveState() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-  catch (e) { /* Speichern fehlgeschlagen — App funktioniert trotzdem für diese Sitzung */ }
+  if (!session) return;
+  const json = JSON.stringify(state);
+  const current = session;
+  saveChain = saveChain.then(() => encryptAndStore(current, json)).catch(() => {
+    showToast('! Speichern hat nicht geklappt. Ist der Speicher voll?');
+  });
 }
 
-let state = loadState();
+let state = null;  // wird nach der Anmeldung geladen
 let activeFilter = 'alle';
 let activeGroupFilter = 'alle';
 let expandedLoanId = null;
@@ -1170,7 +1190,7 @@ document.querySelectorAll('.segment[data-filter]').forEach(f => f.addEventListen
 const TAB_ORDER = ['uebersicht', 'geldfluss', 'darlehen', 'anfragen', 'kreis', 'aktivitaet'];
 document.addEventListener('keydown', (e) => {
   const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
-  const modalOpen = document.querySelector('.modal-overlay:not([hidden])');
+  const modalOpen = document.querySelector('.modal-overlay:not([hidden])') || !document.getElementById('authScreen').hidden;
   if (!typing && !modalOpen && !e.metaKey && !e.ctrlKey && !e.altKey && /^[1-6]$/.test(e.key)) {
     switchTab(TAB_ORDER[Number(e.key) - 1]);
     return;
@@ -1180,4 +1200,226 @@ document.addEventListener('keydown', (e) => {
   document.querySelectorAll('.modal-overlay:not([hidden])').forEach(o => closeOverlay(o.id));
 });
 
-renderAll();
+// =====================================================================
+// Anmeldung: Konten auf diesem Gerät, Daten mit dem Passwort verschlüsselt
+// (PBKDF2 → AES-GCM). Es gibt keinen Server; ohne Passwort sind die Daten
+// nicht lesbar. Ein vergessenes Passwort kann nicht wiederhergestellt werden.
+// =====================================================================
+
+const USERS_KEY = 'ffUsers';
+const SESSION_KEY = 'ffSession';
+const DATA_PREFIX = 'ffData:';
+const PBKDF2_ITERATIONS = 210000;
+
+let session = null; // { user, key }
+
+const textEnc = new TextEncoder();
+const toB64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const fromB64 = (str) => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+const normEmail = (e) => e.trim().toLowerCase();
+
+function loadUsers() {
+  try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch (e) { return []; }
+}
+function saveUsers(users) { localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
+
+// Aus dem Passwort werden 512 Bit abgeleitet: die erste Hälfte ist der Schlüssel,
+// die zweite Hälfte wird gespeichert, um das Passwort beim Anmelden zu prüfen.
+async function deriveFromPassword(password, saltB64, iterations) {
+  const base = await crypto.subtle.importKey('raw', textEnc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: fromB64(saltB64), iterations, hash: 'SHA-256' }, base, 512);
+  return { raw: bits.slice(0, 32), verifier: toB64(bits.slice(32)) };
+}
+const importKey = (raw) => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+
+async function encryptAndStore(sess, json) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, sess.key, textEnc.encode(json));
+  localStorage.setItem(DATA_PREFIX + sess.user.id, JSON.stringify({ v: 1, iv: toB64(iv), ct: toB64(ct) }));
+}
+async function loadUserData(user, key) {
+  const raw = localStorage.getItem(DATA_PREFIX + user.id);
+  if (!raw) return emptyState(user.name);
+  const { iv, ct } = JSON.parse(raw);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(iv) }, key, fromB64(ct));
+  return normalizeState(JSON.parse(new TextDecoder().decode(plain)));
+}
+
+function rememberSession(user, raw) {
+  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id, key: toB64(raw) })); } catch (e) { /* nur bis zum Neuladen angemeldet */ }
+}
+
+async function registerAccount(name, email, password) {
+  const users = loadUsers();
+  if (users.some(u => u.email === email)) throw new Error('Mit dieser E-Mail gibt es auf diesem Gerät schon ein Konto. Bitte melde dich an.');
+  const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
+  const { raw, verifier } = await deriveFromPassword(password, salt, PBKDF2_ITERATIONS);
+  const user = { id: 'u' + Date.now(), name, email, salt, verifier, iterations: PBKDF2_ITERATIONS, createdAt: TODAY };
+
+  const legacy = users.length === 0 ? legacyState() : null;
+  state = legacy ? normalizeState(legacy) : emptyState(name);
+  session = { user, key: await importKey(raw) };
+  saveUsers(users.concat(user));
+  await encryptAndStore(session, JSON.stringify(state));
+  if (legacy) localStorage.removeItem(STORAGE_KEY); // jetzt verschlüsselt im Konto
+  rememberSession(user, raw);
+  return { adopted: !!legacy };
+}
+
+async function loginAccount(email, password) {
+  const user = loadUsers().find(u => u.email === email);
+  if (!user) throw new Error('Zu dieser E-Mail gibt es auf diesem Gerät kein Konto. Prüfe die E-Mail oder erstelle ein neues Konto.');
+  const { raw, verifier } = await deriveFromPassword(password, user.salt, user.iterations);
+  if (verifier !== user.verifier) throw new Error('Das Passwort ist falsch. Bitte versuche es noch einmal.');
+  const key = await importKey(raw);
+  state = await loadUserData(user, key);
+  session = { user, key };
+  rememberSession(user, raw);
+}
+
+async function restoreSession() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+    if (!saved) return false;
+    const user = loadUsers().find(u => u.id === saved.userId);
+    if (!user) return false;
+    const key = await importKey(fromB64(saved.key));
+    state = await loadUserData(user, key);
+    session = { user, key };
+    return true;
+  } catch (e) { return false; }
+}
+
+async function logout() {
+  await saveChain;
+  try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* egal */ }
+  location.reload();
+}
+
+// ---------- Anmelde-Seite ----------
+
+function showAuthMode(mode) {
+  document.querySelectorAll('[data-auth]').forEach(b => {
+    const active = b.dataset.auth === mode;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-selected', active);
+  });
+  document.getElementById('loginForm').hidden = mode !== 'login';
+  document.getElementById('registerForm').hidden = mode !== 'register';
+  document.querySelectorAll('.auth .form-error').forEach(e => { e.hidden = true; });
+  const first = document.querySelector(mode === 'login' ? '#loginEmail' : '#registerName');
+  if (first) first.focus();
+}
+
+function showAuthError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+async function withBusy(button, busyText, fn) {
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = busyText;
+  try { await fn(); } finally { button.disabled = false; button.textContent = label; }
+}
+
+function startApp(message) {
+  document.getElementById('authScreen').hidden = true;
+  document.querySelector('.phone').hidden = false;
+  document.getElementById('accountName').textContent = session.user.name;
+  document.getElementById('accountEmail').textContent = session.user.email;
+  document.getElementById('accountAvatar').textContent = initials(session.user.name);
+  renderAll();
+  switchTab('uebersicht');
+  if (message) showToast(message);
+}
+
+function showAuth() {
+  document.querySelector('.phone').hidden = true;
+  document.getElementById('authScreen').hidden = false;
+  const hasUsers = loadUsers().length > 0;
+  document.getElementById('legacyHint').hidden = hasUsers || !legacyState();
+  showAuthMode(hasUsers ? 'login' : 'register');
+}
+
+document.querySelectorAll('[data-auth]').forEach(b => b.addEventListener('click', () => showAuthMode(b.dataset.auth)));
+
+document.querySelectorAll('[data-toggle-pw]').forEach(btn => btn.addEventListener('click', () => {
+  const input = document.getElementById(btn.dataset.togglePw);
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.textContent = show ? 'Verbergen' : 'Anzeigen';
+  btn.setAttribute('aria-pressed', show);
+}));
+
+document.getElementById('loginForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const email = normEmail(document.getElementById('loginEmail').value);
+  const password = document.getElementById('loginPassword').value;
+  if (!email || !password) { showAuthError('loginError', 'Bitte gib deine E-Mail und dein Passwort ein.'); return; }
+  withBusy(e.submitter || e.target.querySelector('[type=submit]'), 'Bitte warten …', async () => {
+    try {
+      await loginAccount(email, password);
+      e.target.reset();
+      startApp(`✓ Hallo ${session.user.name}, du bist angemeldet.`);
+    } catch (err) {
+      showAuthError('loginError', err.message.startsWith('Zu dieser') || err.message.startsWith('Das Passwort') ? err.message : 'Die Anmeldung hat nicht geklappt. Bitte versuche es noch einmal.');
+    }
+  });
+});
+
+document.getElementById('registerForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = document.getElementById('registerName').value.trim();
+  const email = normEmail(document.getElementById('registerEmail').value);
+  const password = document.getElementById('registerPassword').value;
+  const repeat = document.getElementById('registerPassword2').value;
+  if (!name || !email) { showAuthError('registerError', 'Bitte gib deinen Namen und deine E-Mail ein.'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showAuthError('registerError', 'Die E-Mail sieht nicht richtig aus. Beispiel: name@beispiel.de'); return; }
+  if (password.length < 8) { showAuthError('registerError', 'Das Passwort muss mindestens 8 Zeichen lang sein.'); return; }
+  if (password !== repeat) { showAuthError('registerError', 'Die beiden Passwörter sind nicht gleich. Bitte gib sie noch einmal ein.'); return; }
+  withBusy(e.submitter || e.target.querySelector('[type=submit]'), 'Konto wird erstellt …', async () => {
+    try {
+      const { adopted } = await registerAccount(name, email, password);
+      e.target.reset();
+      startApp(adopted ? `✓ Willkommen ${name}! Deine bisherigen Daten sind jetzt in deinem Konto.` : `✓ Willkommen ${name}! Dein Konto ist erstellt.`);
+    } catch (err) {
+      showAuthError('registerError', err.message.startsWith('Mit dieser') ? err.message : 'Das Konto konnte nicht erstellt werden. Bitte versuche es noch einmal.');
+    }
+  });
+});
+
+document.getElementById('forgotBtn').addEventListener('click', () => {
+  const email = normEmail(document.getElementById('loginEmail').value);
+  const user = loadUsers().find(u => u.email === email);
+  if (!user) {
+    showAuthError('loginError', 'Gib oben die E-Mail deines Kontos ein und tippe dann noch einmal auf „Passwort vergessen?“.');
+    return;
+  }
+  askConfirm('Passwort vergessen',
+    `Deine Daten sind mit deinem Passwort verschlüsselt. Ohne Passwort kann sie niemand öffnen, auch nicht diese App. Du kannst das Konto ${user.email} auf diesem Gerät löschen und neu anfangen. Dabei gehen alle Daten dieses Kontos verloren.`,
+    'Konto löschen', () => {
+      localStorage.removeItem(DATA_PREFIX + user.id);
+      saveUsers(loadUsers().filter(u => u.id !== user.id));
+      showAuthMode(loadUsers().length ? 'login' : 'register');
+      showToast('Das Konto wurde von diesem Gerät gelöscht.');
+    });
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  askConfirm('Abmelden?', 'Deine Daten bleiben gespeichert. Zum Weitermachen meldest du dich wieder mit E-Mail und Passwort an.', 'Ja, abmelden', logout);
+});
+
+async function initAuth() {
+  if (!window.crypto || !crypto.subtle) {
+    document.getElementById('authScreen').hidden = false;
+    document.querySelector('.phone').hidden = true;
+    showAuthError('loginError', 'Dein Browser unterstützt die Verschlüsselung nicht. Bitte öffne die App über https:// oder in einem aktuellen Browser.');
+    return;
+  }
+  if (await restoreSession()) startApp();
+  else showAuth();
+}
+
+initAuth();

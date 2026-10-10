@@ -15,7 +15,16 @@ Eine kleine Web-App zum Verwalten privater Darlehen im Familien- und Freundeskre
 - **Kreis**: Mitglieder und Gruppen verwalten, jede Person zeigt einen berechneten Kreditscore (300–850) mit Einstufung (niedrig/mittel/gut/sehr gut) basierend auf ihrem Rückzahlungsverhalten als Kreditnehmerin
 - **Aktivität**: chronologischer Verlauf aller Buchungen, Anfragen und Entscheidungen
 
-Alle Daten werden lokal im Browser gespeichert (`localStorage`) — es gibt kein Backend und keinen Server.
+## Anmeldung & Datenschutz
+
+- Beim Öffnen erscheint eine **Login-Seite**: *Anmelden* oder *Konto erstellen* (Name, E-Mail, Passwort mit mindestens 8 Zeichen).
+- Jedes Konto hat **eigene Daten**; mehrere Personen können dasselbe Gerät nutzen.
+- Die Daten werden mit dem Passwort **verschlüsselt** gespeichert (PBKDF2 mit 210.000 Runden → AES-GCM, über die Web Crypto API). Ohne Passwort sind sie nicht lesbar.
+- Ein **vergessenes Passwort kann nicht wiederhergestellt werden**; unter „Passwort vergessen?“ lässt sich das Konto auf dem Gerät löschen.
+- Angemeldet bleibt man, bis man sich abmeldet (Einstellungen) oder den Tab/die App schließt.
+- Daten aus der Zeit vor dem Login werden beim ersten Konto automatisch übernommen und danach nur noch verschlüsselt gespeichert.
+
+Alle Daten werden lokal im Browser gespeichert (`localStorage`) — es gibt kein Backend und keinen Server. Die App muss über `https://` (z. B. GitHub Pages) oder als lokale Datei geöffnet werden, damit die Verschlüsselung verfügbar ist.
 
 ## Bedienung & Design
 
