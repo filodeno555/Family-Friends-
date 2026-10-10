@@ -1615,7 +1615,7 @@ async function initCloud() {
   const { data: { session: sbSession } } = await sb.auth.getSession();
 
   if (hashError) {
-    history.replaceState(null, '', APP_URL);
+    try { history.replaceState(null, '', location.pathname); } catch (e) { /* Adresse bleibt dann so */ }
     showAuth('login', /expired|invalid/i.test(hashError)
       ? 'Der Link ist abgelaufen oder wurde schon benutzt. Melde dich an – falls deine E-Mail noch nicht bestätigt ist, kannst du die E-Mail noch einmal senden.'
       : 'Der Link hat nicht funktioniert. Bitte versuche es noch einmal.');
