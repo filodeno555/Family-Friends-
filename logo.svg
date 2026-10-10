@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Family Friends Logo">
+  <rect width="48" height="48" rx="12" fill="#ffffff"/>
+  <!-- zwei Köpfe -->
+  <circle cx="16.5" cy="12.5" r="5" fill="#0b2a5b"/>
+  <circle cx="31.5" cy="12.5" r="5" fill="#0a7a4b"/>
+  <!-- Körper bilden zusammen ein Herz -->
+  <path d="M24 41 C 12 33.5, 6.5 27, 9.5 22 C 12 18, 17.5 18, 21 20.5 C 22.4 21.5, 23.4 22.6, 24 23.6 Z" fill="#0b2a5b"/>
+  <path d="M24 41 C 36 33.5, 41.5 27, 38.5 22 C 36 18, 30.5 18, 27 20.5 C 25.6 21.5, 24.6 22.6, 24 23.6 Z" fill="#0a7a4b"/>
+</svg>
